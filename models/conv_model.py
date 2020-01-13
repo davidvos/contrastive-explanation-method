@@ -10,7 +10,7 @@ class CNN(nn.Module):
   Once initialized an ConvNet object can perform forward.
   """
 
-  def __init__(self, n_channels=32, n_classes=10, size_kernel=(3,3), device='cuda:0'):
+  def __init__(self, n_channels=32, n_classes=10, conv_kernel=(3,3), pool_kernel=(2,2), device='cuda:0'):
     """
     Initializes ConvNet object. 
     
@@ -27,12 +27,13 @@ class CNN(nn.Module):
 
     assert device in ['cuda:0', 'cpu'], "Must put model either on 'cpu' or 'cuda:0'"
     assert 0 < n_channels and 0 < n_classes, "Must be positive number of input channels"
-    assert type(size_kernel) is tuple, "Must be positive numbers in tuple"
+    assert type(conv_kernel) is tuple and type(pool_kernel) is tuple, "Must be positive numbers in tuple"
 
-    self.conv32_1 = nn.Conv2d(in_channels=n_channels, out_channels=32, kernel_size=size_kernel, stride=1, padding=1).to(device)
-    self.conv32_2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=size_kernel, stride=1, padding=1).to(device)
-    self.conv64_1 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=size_kernel, stride=1, padding=1).to(device)
-    self.conv64_2 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=size_kernel, stride=1, padding=1).to(device)
+    self.conv32_1 = nn.Conv2d(in_channels=n_channels, out_channels=32, kernel_size=conv_kernel, stride=1, padding=1).to(device)
+    self.conv32_2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=conv_kernel, stride=1, padding=1).to(device)
+
+    self.conv64_1 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=conv_kernel, stride=1, padding=1).to(device)
+    self.conv64_2 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=conv_kernel, stride=1, padding=1).to(device)
     
 
     self.relu = nn.ReLU().to(device)
@@ -40,7 +41,7 @@ class CNN(nn.Module):
 
     self.dropout = nn.Dropout(p=0.3, inplace=False).to(device)
     self.flat = nn.Flatten().to(device)
-    self.pool = nn.MaxPool2d(kernel_size=size_kernel, stride=1, padding=1).to(device)
+    self.pool = nn.MaxPool2d(kernel_size=pool_kernel, stride=1, padding=1).to(device)
 
     self.dense1 = nn.Linear(in_features=64, out_features=200, bias=True).to(device)
     self.dense2 = nn.Linear(in_features=200, out_features=200, bias=True).to(device)
