@@ -1,5 +1,6 @@
-from mnist_dataset import MNISTDataset
+from mnist import MNIST
+from fashion_mnist import FashionMNIST
 
-dataset = MNISTDataset(download=True)
+dataset = FashionMNIST(download=False)
 
-print(dataset.get_sample(train=True))
+print(dataset.get_sample(train=True, show_image=True))
