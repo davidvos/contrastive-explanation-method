@@ -42,3 +42,6 @@ __pycache__/
 .Trashes
 ehthumbs.db
 Thumbs.db
+*.ipynb
+*.ipynb
+alibi-mnist/cem_mnist.ipynb
