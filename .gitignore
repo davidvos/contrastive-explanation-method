@@ -32,6 +32,8 @@ datasets/data/
 *.sqlite
 .ipynb_checkpoints/
 __pycache__/
+*.ipynb
+alibi-mnist/cem_mnist.ipynb
 
 # OS generated files #
 ######################
@@ -42,6 +44,4 @@ __pycache__/
 .Trashes
 ehthumbs.db
 Thumbs.db
-*.ipynb
-*.ipynb
-alibi-mnist/cem_mnist.ipynb
+
