@@ -46,7 +46,7 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
-    dataset = MNIST()  
+    dataset = MNIST(batch_size=config.batch_size)  
     data_loader = dataset.train_loader
 
     # Initialize the model that we are going to use
@@ -60,12 +60,15 @@ def train(config):
 
     x_axis, losses, accuracies = [], [], []
     tot_step = 0
+    prev_batch = None
     for j in range(100):
         for step, (batch_inputs, batch_targets) in enumerate(data_loader):
+            
             tot_step += 1
+            
 
             pred = model.forward(batch_inputs.to(config.device))
-
+            prev_batch = batch_inputs
             optimizer.zero_grad()
 
             loss = criterion(pred, batch_targets.to(config.device)) 
@@ -116,7 +119,7 @@ if __name__ == "__main__":
 
     # Training params
     parser.add_argument('--batch_size', type=int, default=64, help='Number of examples to process in a batch')
-    parser.add_argument('--learning_rate', type=float, default=2e-3, help='Learning rate')
+    parser.add_argument('--learning_rate', type=float, default=2e-6, help='Learning rate')
 
     # It is not necessary to implement the following three params, but it may help training.
     parser.add_argument('--learning_rate_decay', type=float, default=0.96, help='Learning rate decay fraction')

@@ -12,9 +12,10 @@ class Dataset:
         for images, labels in loader:  
             sample_image = images[0]    
             sample_label = labels[0]
-            visual_img = sample_image.numpy()[0]
-            plt.imshow(visual_img, cmap='gray')    
-            plt.show()        
+            if show_image:
+                visual_img = sample_image.numpy()[0]
+                plt.imshow(visual_img, cmap='gray')    
+                plt.show()        
             return sample_image, sample_label
 
     
