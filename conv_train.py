@@ -48,6 +48,7 @@ def train(config):
 
     # Initialize the dataset and data loader (note the +1)
     dataset = MNIST(download=config.download, batch_size=config.batch_size)  
+
     data_loader = dataset.train_loader
 
     # Initialize the model that we are going to use
@@ -61,15 +62,14 @@ def train(config):
 
     x_axis, losses, accuracies = [], [], []
     tot_step = 0
+    prev_batch = None
     for j in range(100):
         for step, (batch_inputs, batch_targets) in enumerate(data_loader):
+            
             tot_step += 1
-
+            
             pred = model.forward(batch_inputs.to(config.device))
-            # print(pred[:10])
-            # print(batch_targets[:10])
-            # if tot_step == 2:
-            #     return
+
             optimizer.zero_grad()
 
             loss = criterion(pred, batch_targets.to(config.device)) 
@@ -103,18 +103,8 @@ def train(config):
         if config.save:
             torch.save(model.state_dict(), './models/'+ str('cnn.h5'))
 
-    if config.plot:
-        plt.plot(x_axis, losses)
-        plt.savefig('lossplot_LSTM_' + str(j) + '.jpg')
-        plt.show()
-        plt.plot(x_axis, accuracies)
-        plt.savefig('accuraccies_LSTM_' + str(j) + '.jpg')
-        plt.show()
     print('Done training.')
 
-
- ################################################################################
- ################################################################################
 
 if __name__ == "__main__":
 
