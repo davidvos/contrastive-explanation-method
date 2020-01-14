@@ -66,7 +66,6 @@ def train(config):
             
             tot_step += 1
             
-
             pred = model.forward(batch_inputs.to(config.device))
             prev_batch = batch_inputs
             optimizer.zero_grad()
@@ -99,13 +98,6 @@ def train(config):
         if config.save:
             torch.save(model.state_dict(), './models/'+ str('cnn.h5'))
 
-    if config.plot:
-        plt.plot(x_axis, losses)
-        plt.savefig('lossplot_LSTM_' + str(j) + '.jpg')
-        plt.show()
-        plt.plot(x_axis, accuracies)
-        plt.savefig('accuraccies_LSTM_' + str(j) + '.jpg')
-        plt.show()
     print('Done training.')
 
 

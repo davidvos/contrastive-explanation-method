@@ -18,4 +18,10 @@ class Dataset:
                 plt.show()        
             return sample_image, sample_label
 
-    
+    def get_batch(self, train=True)
+        if train:
+            loader = self.train_loader
+        else:
+            loader = self.test_loader
+        for images, labels in loader:  
+            return images, labels
