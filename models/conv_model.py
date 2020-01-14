@@ -50,6 +50,29 @@ class CNN(nn.Module):
 
     self.device = device
     
+
+    self.conv = nn.Sequential(
+        self.conv32_1,
+        self.relu,
+        self.conv32_2,
+        self.relu,
+        self.pool,
+        self.conv64_1,
+        self.relu,
+        self.conv64_2,
+        self.relu,
+        self.pool,
+      )
+
+    self.fc = nn.Sequential(
+        self.flat,
+        self.dense1,
+        self.relu,
+        self.dense2,
+        self.relu,
+        self.dense_out,
+        self.soft
+      )
   def forward(self, x):
     """
     Performs forward pass of the input. Here an input tensor x is transformed through 
@@ -66,20 +89,25 @@ class CNN(nn.Module):
     if torch.cuda.is_available() and self.device == 'cuda:0':
       x.cuda()
 
+    # print(x.shape)
+
     x = x.unsqueeze(0) if len(x.shape) != 4 else x
-    x = self.relu(self.conv32_1(x))
-    x = self.relu(self.conv32_2(x))
-    x = self.pool(x)
-    x = self.dropout(x)
+    # x = self.relu(self.conv32_1(x))
+    # x = self.relu(self.conv32_2(x))
+    # x = self.pool(x)
+    # x = self.dropout(x)
 
-    x = self.relu(self.conv64_1(x))
-    x = self.relu(self.conv64_2(x))
-    x = self.pool(x)
-    x = self.dropout(x)
+    # x = self.relu(self.conv64_1(x))
+    # x = self.relu(self.conv64_2(x))
+    # x = self.pool(x)
+    # x = self.dropout(x)
 
-    x = self.flat(x)
-    x = self.relu(self.dense1(x))
-    x = self.relu(self.dense2(x))
-    out = self.soft(self.dense_out(x))
+    # x = self.flat(x)
+    # x = self.relu(self.dense1(x))
+    # x = self.relu(self.dense2(x))
+    # out = self.soft(self.dense_out(x))
+
+    x = self.conv(x)
+    out = self.fc(x)
 
     return out

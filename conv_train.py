@@ -37,7 +37,8 @@ import matplotlib.pyplot as plt
 ################################################################################
 
 def get_accuracy(predictions, targets):
-    accuracy = (predictions.max(axis=1)[1].cpu().numpy() == targets.cpu().numpy()).sum()/(predictions.shape[0] * predictions.shape[1])
+    # print(predictions.argmax(1), '    ', targets.cpu().numpy(), '   ', (predictions.argmax(1).cpu().numpy() == targets.cpu().numpy()))
+    accuracy = (predictions.argmax(1).cpu().numpy() == targets.cpu().numpy()).sum()/(predictions.shape[0] )
     return accuracy
 
 def train(config):
@@ -46,7 +47,7 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
-    dataset = MNIST()  
+    dataset = MNIST(download=config.download, batch_size=config.batch_size)  
     data_loader = dataset.train_loader
 
     # Initialize the model that we are going to use
@@ -54,7 +55,7 @@ def train(config):
 
     # Setup the loss and optimizer
     criterion = nn.CrossEntropyLoss().to(config.device)
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=config.learning_rate)  # fixme
+    optimizer = torch.optim.SGD(model.parameters(), lr=config.learning_rate)  # fixme
 
     model.train()
 
@@ -65,7 +66,10 @@ def train(config):
             tot_step += 1
 
             pred = model.forward(batch_inputs.to(config.device))
-
+            # print(pred[:10])
+            # print(batch_targets[:10])
+            # if tot_step == 2:
+            #     return
             optimizer.zero_grad()
 
             loss = criterion(pred, batch_targets.to(config.device)) 
@@ -80,13 +84,16 @@ def train(config):
 
             if tot_step % config.print_every == 0:
 
-                print("[{}] Train Step {:04d}/{:04d}, Batch Size = {},"
+                print("[{}] Train Step {:04d}/{:04d}, Batch Size = {}, "
                       "Accuracy = {:.2f}, Loss = {:.3f}".format(
                         datetime.now().strftime("%Y-%m-%d %H:%M"), tot_step,
                         config.train_steps, config.batch_size,
                         accuracy, loss
                 ))
 
+            if tot_step % config.sample_every == 0:
+                print(pred[:10].argmax(0))
+                print(batch_targets[:10])
 
             if tot_step == config.train_steps:
                 # If you receive a PyTorch data-loader error, check this bug report:
@@ -116,7 +123,7 @@ if __name__ == "__main__":
 
     # Training params
     parser.add_argument('--batch_size', type=int, default=64, help='Number of examples to process in a batch')
-    parser.add_argument('--learning_rate', type=float, default=2e-3, help='Learning rate')
+    parser.add_argument('--learning_rate', type=float, default=2e-6, help='Learning rate')
 
     # It is not necessary to implement the following three params, but it may help training.
     parser.add_argument('--learning_rate_decay', type=float, default=0.96, help='Learning rate decay fraction')
@@ -125,14 +132,17 @@ if __name__ == "__main__":
     parser.add_argument('--train_steps', type=int, default=int(1e6), help='Number of training steps')
 
     # Misc params
-    parser.add_argument('--print_every', type=int, default=5, help='How often to print training progress')
-    parser.add_argument('--sample_every', type=int, default=100, help='How often to sample from the model')
+    parser.add_argument('--print_every', type=int, default=100, help='How often to print training progress')
+    parser.add_argument('--sample_every', type=int, default=1000, help='How often to sample from the model')
 
 
     # Self added argument for training efficiency
-    parser.add_argument('--device', type=str, default="cpu", help="Training device 'cpu' or 'cuda:0'")
+    parser.add_argument('--device', type=str, default="cuda:0", help="Training device 'cpu' or 'cuda:0'")
     parser.add_argument('--plot', type=bool, default=False, help="set to True if want to plot accuracy and loss")
     parser.add_argument('--save', type=bool, default=False, help="set to True to save model_stated_dict")
+
+
+    parser.add_argument('--download', type=bool, default=False, help="set to true if you want to download dataset")
 
     config = parser.parse_args()
 
