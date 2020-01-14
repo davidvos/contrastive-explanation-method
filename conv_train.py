@@ -29,14 +29,15 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from dataset import TextDataset
-from conv_model import CNN
+from models.conv_model import CNN
+from datasets.mnist import MNIST
+
 import matplotlib.pyplot as plt
 
 ################################################################################
 
 def get_accuracy(predictions, targets):
-    accuracy = (predictions.max(axis=2)[1].cpu().numpy() == targets.cpu().numpy()).sum()/(predictions.shape[0] * predictions.shape[1])
+    accuracy = (predictions.max(axis=1)[1].cpu().numpy() == targets.cpu().numpy()).sum()/(predictions.shape[0] * predictions.shape[1])
     return accuracy
 
 def train(config):
@@ -45,8 +46,8 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
-    dataset = TextDataset( config.txt_file, config.seq_length)  # Nog aanpassen naar Daafs dataloader
-    data_loader = DataLoader(dataset, config.batch_size)
+    dataset = MNIST()  
+    data_loader = dataset.train_loader
 
     # Initialize the model that we are going to use
     model = CNN(device=config.device)
@@ -67,8 +68,8 @@ def train(config):
 
             optimizer.zero_grad()
 
-            loss = criterion(pred.permute(0, 2, 1), batch_targets.to(config.device)) 
-            accuracy =get_accuracy(pred, batch_targets.to(config.device))
+            loss = criterion(pred, batch_targets.to(config.device)) 
+            accuracy = get_accuracy(pred, batch_targets.to(config.device))
 
             losses.append(loss.data)
             accuracies.append(accuracy)
@@ -76,7 +77,6 @@ def train(config):
 
             loss.backward()
             optimizer.step()
-
 
             if tot_step % config.print_every == 0:
 
@@ -94,15 +94,15 @@ def train(config):
                 break
 
         if config.save:
-            torch.save(model.state_dict(), './models/'+ str('cnn.h5')
+            torch.save(model.state_dict(), './models/'+ str('cnn.h5'))
 
-        if config.plot:
-            plt.plot(x_axis, losses)
-            plt.savefig('lossplot_LSTM_' + str(j) + '.jpg')
-            plt.show()
-            plt.plot(x_axis, accuracies)
-            plt.savefig('accuraccies_LSTM_' + str(j) + '.jpg')
-            plt.show()
+    if config.plot:
+        plt.plot(x_axis, losses)
+        plt.savefig('lossplot_LSTM_' + str(j) + '.jpg')
+        plt.show()
+        plt.plot(x_axis, accuracies)
+        plt.savefig('accuraccies_LSTM_' + str(j) + '.jpg')
+        plt.show()
     print('Done training.')
 
 
@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
 
     # Self added argument for training efficiency
-    parser.add_argument('--device', type=str, default="cuda:0", help="Training device 'cpu' or 'cuda:0'")
+    parser.add_argument('--device', type=str, default="cpu", help="Training device 'cpu' or 'cuda:0'")
     parser.add_argument('--plot', type=bool, default=False, help="set to True if want to plot accuracy and loss")
     parser.add_argument('--save', type=bool, default=False, help="set to True to save model_stated_dict")
 
