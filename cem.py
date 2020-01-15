@@ -57,6 +57,7 @@ class ContrastiveExplanationMethod:
         self.iterations = iterations
         self.n_searches = n_searches
         
+        self.perturb_init = torch.zeros(orig_sample.shape)
         self.delta = torch.zeros(orig_sample.shape)
         self.y = torch.zeros(orig_sample.shape)
 
@@ -65,7 +66,7 @@ class ContrastiveExplanationMethod:
             self.pert_space = (torch.ones(original.shape) - orig_sample)
             self.pert_space /= torch.norm(self.pert_space, axis=1)
         elif mode == "PP":
-            self.pert_space = orig_sample
+            self.pert_space = orig_sample.copy()
             self.pert_space /= torch.norm(self.pert_space, axis=1)
 
         # to keep track of whether in the current search the perturbation loss reached 0
@@ -83,15 +84,15 @@ class ContrastiveExplanationMethod:
         (Eq. 5) and (eq. 6) in https://arxiv.org/abs/1802.07623
         """
 
-        if self.mode == "PP":
-            delta_space = orig_sample.copy()
-        elif self.mode == "PN":
-            delta_space = torch.ones(orig_sample.shape) - orig_sample
-        
         while stopping_condition:
             
             # See appendix A
             for _ in range(self.n_searches):
+
+                # initialise values for a new search
+                self.c = self.c_init
+                self.delta = self.perturb_init.copy()
+                self.y = self.perturb_init.copy()
                 
                 for i in range(1, self.iterations + 1):
 
