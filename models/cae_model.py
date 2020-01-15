@@ -4,7 +4,7 @@ import torch.nn as nn
 # Convolutional Auto Encoder
 class CAE(nn.Module):
     
-    def __init__(sel, device='cpu'):
+    def __init__(self, device='cpu'):
         super(CAE, self).__init__()
 
         self.device = device
