@@ -49,7 +49,8 @@ class ContrastiveExplanationMethod:
         self.mode = mode
         self.autoencoder = autoencoder
         self.kappa = kappa
-        self.const = const
+        self.c_init = const
+        self.c = const
         self.beta = beta
         self.gamma = gamma
         self.feature_range = feature_range
@@ -58,7 +59,20 @@ class ContrastiveExplanationMethod:
         
         self.delta = torch.zeros(orig_sample.shape)
         self.y = torch.zeros(orig_sample.shape)
-        
+
+        # projection space for binary datasets
+        if mode == "PN":
+            self.pert_space = (torch.ones(original.shape) - orig_sample)
+            self.pert_space /= torch.norm(self.pert_space, axis=1)
+        elif mode == "PP":
+            self.pert_space = orig_sample
+            self.pert_space =/ torch.norm(self.pert_space, axis=1)
+
+        # to keep track of whether in the current search the perturbation loss reached 0
+        self.loss_reached_zero = False
+
+        self.best_delta = None
+        self.best_loss = float("Inf")
         self.prev_deltas = []
     
     def fista(self, orig_sample):
@@ -78,17 +92,26 @@ class ContrastiveExplanationMethod:
             
             # See appendix A
             for _ in range(self.n_searches):
+                
                 for i in range(1, self.iterations + 1):
 
-                    # TODO: vector projection onto where?
-
-                    # BATCH SIZE?
                     obj = (self.optimisation_obj(orig_sample)).sum()
+
+                    if obj < self.best_loss:
+                        self.best_delta = self.delta
+                        self.best_loss = obj
+
                     obj.backward()
                     self.prev_deltas.append(self.delta.copy().detach())
 
-                    self.delta = self.shrink(self.y - self.learning_rate * self.y.grad)
-                    self.y = (self.delta + i/(i + 3)(self.delta - self.prev_deltas[-1]))
+                    # project onto subspace that contains our possible features. (eq. 5, 6)
+                    self.delta = self.pert_space.dot(self.shrink(self.y - self.learning_rate * self.y.grad))
+                    self.y = self.pert_space.dot((self.delta + i/(i + 3)(self.delta - self.prev_deltas[-1])))
+
+                if self.loss_reached_zero:
+                    self.c = self.c + self.c_init / 2
+                else:
+                    self.c *= 10
 
                     
     def shrink(self, z):
@@ -112,15 +135,15 @@ class ContrastiveExplanationMethod:
         """
         
         obj = (
-            self.const * self.loss_fn(orig_sample) +
+            self.c * self.loss_fn(orig_sample) +
             self.beta * torch.sum(torch.abs(self.y), axis=1) + # IS DIT GOED?
             torch.norm(self.y, axis=1) ** 2
         )
         if callable(self.autoencoder):
             if self.mode == "PN":
-                obj + gamma * torch.norm(orig_sample + self.y - self.autoencoder(orig_sample + self.y), axis=1) ** 2
+                obj + gamma * torch.norm(orig_sample + self.y - self.autoencoder(orig_sample + self.y).detach(), axis=1) ** 2
             elif self.mode == "PP":
-                obj + gamma * torch.norm(self.y - self.autoencoder(self.y), axis=1) ** 2
+                obj + gamma * torch.norm(self.y - self.autoencoder(self.y).detach(), axis=1) ** 2
         return obj
 
     def loss_fn(self, orig_sample):
@@ -138,16 +161,19 @@ class ContrastiveExplanationMethod:
         
         if self.mode == "PN":
             perturbation_loss = torch.max(
-                torch.max(target_mask * self.classifier(orig_sample + self.y), axis=1) - 
-                torch.max(nontarget_mask * self.classifier(orig_sample + self.y), axis=1),
+                torch.max(target_mask * self.classifier(orig_sample + self.y).detach(), axis=1) - 
+                torch.max(nontarget_mask * self.classifier(orig_sample + self.y).detach(), axis=1),
                 -self.kappa
             )
         elif self.mode == "PP":
-            pert_output = self.classifier(self.y)
+            pert_output = self.classifier(self.y).detach()
             perturbation_loss = torch.max(
                 torch.max(nontarget_mask * pert_output, axis=1) - torch.max(target_mask * pert_output, axis=1),
                 -self.kappa
             )
         
+        if perturbation_loss == -kappa:
+            loss_reached_zero = True
+
         return perturbation_loss
     
