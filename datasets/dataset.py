@@ -4,7 +4,7 @@ from torchvision import transforms
 
 class Dataset:
 
-    def get_sample(self, train=True, show_image=True):
+    def get_sample(self, train=True, show_image=False):
         if train:
             loader = self.train_loader
         else:

@@ -44,7 +44,7 @@ class ContrastiveExplanationMethod:
             range over which the features of the perturbed instances should be distributed.
         """
         
-        self.explain_model = explain_model
+        self.classifier = classifier
         self.autoencoder = autoencoder
         self.kappa = kappa
         self.c_init = const
@@ -79,41 +79,39 @@ class ContrastiveExplanationMethod:
 
         # projection space for binary datasets (X/x_0) for PN and (x_0) for PP used in (eq. 5, 6)
         if mode == "PN":
-            self.pert_space = (torch.ones(original.shape) - orig_sample)
-            self.pert_space /= torch.norm(self.pert_space, axis=1)
+            self.pert_space = (torch.ones(orig_sample.shape) - orig_sample)
+            self.pert_space /= torch.norm(self.pert_space, dim=1)
         elif mode == "PP":
-            self.pert_space = orig_sample.copy()
-            self.pert_space /= torch.norm(self.pert_space, axis=1)
+            self.pert_space = orig_sample.clone()
+            self.pert_space /= torch.norm(self.pert_space, dim=1)
 
-        while stopping_condition:
+        # See appendix A
+        for _ in range(self.n_searches):
+
+            # initialise values for a new search
+            self.c = self.c_init
+            self.delta = perturb_init.clone()
+            self.y = perturb_init.clone()
             
-            # See appendix A
-            for _ in range(self.n_searches):
+            for i in range(1, self.iterations + 1):
 
-                # initialise values for a new search
-                self.c = self.c_init
-                self.delta = perturb_init.copy()
-                self.y = perturb_init.copy()
-                
-                for i in range(1, self.iterations + 1):
+                obj = (self.optimisation_obj(orig_sample)).sum()
 
-                    obj = (self.optimisation_obj(orig_sample)).sum()
+                if obj < self.best_loss:
+                    self.best_delta = self.delta
+                    self.best_loss = obj
 
-                    if obj < self.best_loss:
-                        self.best_delta = self.delta
-                        self.best_loss = obj
+                obj.backward()
+                self.prev_deltas.append(self.delta.clone().detach())
 
-                    obj.backward()
-                    self.prev_deltas.append(self.delta.copy().detach())
+                # project onto subspace that contains our possible features. (eq. 5, 6)
+                self.delta = self.pert_space.dot(self.shrink(self.y - self.learning_rate * self.y.grad))
+                self.y = self.pert_space.dot((self.delta + i/(i + 3)(self.delta - self.prev_deltas[-1])))
 
-                    # project onto subspace that contains our possible features. (eq. 5, 6)
-                    self.delta = self.pert_space.dot(self.shrink(self.y - self.learning_rate * self.y.grad))
-                    self.y = self.pert_space.dot((self.delta + i/(i + 3)(self.delta - self.prev_deltas[-1])))
-
-                if self.loss_reached_zero:
-                    self.c = (self.c + self.c_init) / 2
-                else:
-                    self.c *= 10
+            if self.loss_reached_zero:
+                self.c = (self.c + self.c_init) / 2
+            else:
+                self.c *= 10
 
                     
     def shrink(self, z):
@@ -125,7 +123,7 @@ class ContrastiveExplanationMethod:
         z_min = z - self.beta
         z_plus = z + self.beta
         
-        z_shrunk = z.copy()
+        z_shrunk = z.clone()
         z_shrunk = torch.where(torch.abs(z) <= self.beta, zeros, z_shrunk)
         z_shrunk = torch.where(z > self.beta, z_min, z_shrunk)
         z_shrunk = torch.where(z < -self.beta, z_plus, z_shrunk)
@@ -138,14 +136,14 @@ class ContrastiveExplanationMethod:
         
         obj = (
             self.c * self.loss_fn(orig_sample) +
-            self.beta * torch.sum(torch.abs(self.y), axis=1) + # IS DIT GOED?
-            torch.norm(self.y, axis=1) ** 2
+            self.beta * torch.sum(torch.abs(self.y), dim=1) + # IS DIT GOED?
+            torch.norm(self.y, dim=1) ** 2
         )
         if callable(self.autoencoder):
             if self.mode == "PN":
-                obj + gamma * torch.norm(orig_sample + self.y - self.autoencoder(orig_sample + self.y).detach(), axis=1) ** 2
+                obj + self.gamma * torch.norm(orig_sample + self.y - self.autoencoder(orig_sample + self.y).detach(), dim=1) ** 2
             elif self.mode == "PP":
-                obj + gamma * torch.norm(self.y - self.autoencoder(self.y).detach(), axis=1) ** 2
+                obj + self.gamma * torch.norm(self.y - self.autoencoder(self.y).detach(), dim=1) ** 2
         return obj
 
     def loss_fn(self, orig_sample):
@@ -158,23 +156,29 @@ class ContrastiveExplanationMethod:
         
         orig_output = self.classifier(orig_sample)
         target_mask = torch.zeros(orig_output.shape)
-        target_mask[torch.arange(orig_output.shape[0]), torch.argmax(orig_output, axis=1)] = 1
+        target_mask[torch.arange(orig_output.shape[0]), torch.argmax(orig_output, dim=1)] = 1
         nontarget_mask = torch.ones(orig_output.shape) - target_mask
         
         if self.mode == "PN":
+            pert_output = self.classifier(orig_sample + self.y).detach()
             perturbation_loss = torch.max(
-                torch.max(target_mask * self.classifier(orig_sample + self.y).detach(), axis=1) - 
-                torch.max(nontarget_mask * self.classifier(orig_sample + self.y).detach(), axis=1),
+                torch.tensor([
+                torch.max(target_mask * pert_output, dim=1)[0] - 
+                torch.max(nontarget_mask * pert_output, dim=1)[0],
                 -self.kappa
+
+                ])
             )
         elif self.mode == "PP":
             pert_output = self.classifier(self.y).detach()
             perturbation_loss = torch.max(
-                torch.max(nontarget_mask * pert_output, axis=1) - torch.max(target_mask * pert_output, axis=1),
-                -self.kappa
+                torch.tensor([
+                    torch.max(nontarget_mask * pert_output, dim=1)[0] - torch.max(target_mask * pert_output, dim=1)[0],
+                    -self.kappa
+                ])
             )
         
-        if perturbation_loss == -kappa:
+        if perturbation_loss == -self.kappa:
             self.loss_reached_zero = True
 
         return perturbation_loss
