@@ -29,18 +29,16 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from dataset import TextDataset
-from conv_model import CNN
+from models.conv_model import CNN
+from datasets.mnist import MNIST
+
 import matplotlib.pyplot as plt
-
-
-
-
 
 ################################################################################
 
 def get_accuracy(predictions, targets):
-    accuracy = (predictions.max(axis=2)[1].cpu().numpy() == targets.cpu().numpy()).sum()/(predictions.shape[0] * predictions.shape[1])
+    # print(predictions.argmax(1), '    ', targets.cpu().numpy(), '   ', (predictions.argmax(1).cpu().numpy() == targets.cpu().numpy()))
+    accuracy = (predictions.argmax(1).cpu().numpy() == targets.cpu().numpy()).sum()/(predictions.shape[0] )
     return accuracy
 
 def train(config):
@@ -49,30 +47,33 @@ def train(config):
     device = torch.device(config.device)
 
     # Initialize the dataset and data loader (note the +1)
-    dataset = TextDataset( config.txt_file, config.seq_length)  # Nog aanpassen naar Daafs dataloader
-    data_loader = DataLoader(dataset, config.batch_size)
+    dataset = MNIST(download=config.download, batch_size=config.batch_size)  
+
+    data_loader = dataset.train_loader
 
     # Initialize the model that we are going to use
     model = CNN(device=config.device)
 
     # Setup the loss and optimizer
     criterion = nn.CrossEntropyLoss().to(config.device)
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=config.learning_rate)  # fixme
+    optimizer = torch.optim.SGD(model.parameters(), lr=config.learning_rate)  # fixme
 
     model.train()
 
     x_axis, losses, accuracies = [], [], []
     tot_step = 0
+    prev_batch = None
     for j in range(100):
         for step, (batch_inputs, batch_targets) in enumerate(data_loader):
+            
             tot_step += 1
-
+            
             pred = model.forward(batch_inputs.to(config.device))
 
             optimizer.zero_grad()
 
-            loss = criterion(pred.permute(0, 2, 1), batch_targets.to(config.device)) 
-            accuracy =get_accuracy(pred, batch_targets.to(config.device))
+            loss = criterion(pred, batch_targets.to(config.device)) 
+            accuracy = get_accuracy(pred, batch_targets.to(config.device))
 
             losses.append(loss.data)
             accuracies.append(accuracy)
@@ -81,16 +82,18 @@ def train(config):
             loss.backward()
             optimizer.step()
 
-
             if tot_step % config.print_every == 0:
 
-                print("[{}] Train Step {:04d}/{:04d}, Batch Size = {},"
+                print("[{}] Train Step {:04d}/{:04d}, Batch Size = {}, "
                       "Accuracy = {:.2f}, Loss = {:.3f}".format(
                         datetime.now().strftime("%Y-%m-%d %H:%M"), tot_step,
                         config.train_steps, config.batch_size,
                         accuracy, loss
                 ))
 
+            if tot_step % config.sample_every == 0:
+                print(pred[:10].argmax(0))
+                print(batch_targets[:10])
 
             if tot_step == config.train_steps:
                 # If you receive a PyTorch data-loader error, check this bug report:
@@ -98,20 +101,10 @@ def train(config):
                 break
 
         if config.save:
-            torch.save(model.state_dict(), './models/'+ str('cnn.h5')
+            torch.save(model.state_dict(), './models/'+ str('cnn.h5'))
 
-        if config.plot:
-            plt.plot(x_axis, losses)
-            plt.savefig('lossplot_LSTM_' + str(j) + '.jpg')
-            plt.show()
-            plt.plot(x_axis, accuracies)
-            plt.savefig('accuraccies_LSTM_' + str(j) + '.jpg')
-            plt.show()
     print('Done training.')
 
-
- ################################################################################
- ################################################################################
 
 if __name__ == "__main__":
 
@@ -120,7 +113,7 @@ if __name__ == "__main__":
 
     # Training params
     parser.add_argument('--batch_size', type=int, default=64, help='Number of examples to process in a batch')
-    parser.add_argument('--learning_rate', type=float, default=2e-3, help='Learning rate')
+    parser.add_argument('--learning_rate', type=float, default=2e-6, help='Learning rate')
 
     # It is not necessary to implement the following three params, but it may help training.
     parser.add_argument('--learning_rate_decay', type=float, default=0.96, help='Learning rate decay fraction')
@@ -129,14 +122,17 @@ if __name__ == "__main__":
     parser.add_argument('--train_steps', type=int, default=int(1e6), help='Number of training steps')
 
     # Misc params
-    parser.add_argument('--print_every', type=int, default=5, help='How often to print training progress')
-    parser.add_argument('--sample_every', type=int, default=100, help='How often to sample from the model')
+    parser.add_argument('--print_every', type=int, default=100, help='How often to print training progress')
+    parser.add_argument('--sample_every', type=int, default=1000, help='How often to sample from the model')
 
 
     # Self added argument for training efficiency
     parser.add_argument('--device', type=str, default="cuda:0", help="Training device 'cpu' or 'cuda:0'")
     parser.add_argument('--plot', type=bool, default=False, help="set to True if want to plot accuracy and loss")
     parser.add_argument('--save', type=bool, default=False, help="set to True to save model_stated_dict")
+
+
+    parser.add_argument('--download', type=bool, default=False, help="set to true if you want to download dataset")
 
     config = parser.parse_args()
 

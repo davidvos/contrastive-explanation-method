@@ -1,8 +1,10 @@
+
 """
 This module implements a Convolutional Neural Network in PyTorch.
 You should fill in code into indicated sections.
 """
 import torch.nn as nn
+import torch
 class CNN(nn.Module):
   """
   This class implements a Convolutional Neural Network in PyTorch.
@@ -10,7 +12,7 @@ class CNN(nn.Module):
   Once initialized an ConvNet object can perform forward.
   """
 
-  def __init__(self, n_channels=32, n_classes=10, conv_kernel=(3,3), pool_kernel=(2,2), device='cuda:0'):
+  def __init__(self, n_channels=1, n_classes=10, conv_kernel=(3,3), pool_kernel=(2,2), device='cuda:0'):
     """
     Initializes ConvNet object. 
     
@@ -35,7 +37,6 @@ class CNN(nn.Module):
     self.conv64_1 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=conv_kernel, stride=1, padding=1).to(device)
     self.conv64_2 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=conv_kernel, stride=1, padding=1).to(device)
     
-
     self.relu = nn.ReLU().to(device)
     self.soft = nn.Softmax().to(device)
 
@@ -43,12 +44,35 @@ class CNN(nn.Module):
     self.flat = nn.Flatten().to(device)
     self.pool = nn.MaxPool2d(kernel_size=pool_kernel, stride=1, padding=1).to(device)
 
-    self.dense1 = nn.Linear(in_features=64, out_features=200, bias=True).to(device)
+    self.dense1 = nn.Linear(in_features=57600, out_features=200, bias=True).to(device)
     self.dense2 = nn.Linear(in_features=200, out_features=200, bias=True).to(device)
     self.dense_out = nn.Linear(in_features=200, out_features=n_classes, bias=True).to(device)
 
     self.device = device
     
+
+    self.conv = nn.Sequential(
+        self.conv32_1,
+        self.relu,
+        self.conv32_2,
+        self.relu,
+        self.pool,
+        self.conv64_1,
+        self.relu,
+        self.conv64_2,
+        self.relu,
+        self.pool,
+      )
+
+    self.fc = nn.Sequential(
+        self.flat,
+        self.dense1,
+        self.relu,
+        self.dense2,
+        self.relu,
+        self.dense_out,
+        self.soft
+      )
   def forward(self, x):
     """
     Performs forward pass of the input. Here an input tensor x is transformed through 
@@ -65,20 +89,25 @@ class CNN(nn.Module):
     if torch.cuda.is_available() and self.device == 'cuda:0':
       x.cuda()
 
-    x = self.relu(self.conv32_1(x))
-    x = self.relu(self.conv32_2(x))
-    x = self.pool(x)
-    x = self.dropout(x)
+    # print(x.shape)
 
-    x = self.relu(self.conv64_1(x))
-    x = self.relu(self.conv64_2(x))
-    x = self.pool(x)
-    x = self.dropout(x)
+    x = x.unsqueeze(0) if len(x.shape) != 4 else x
+    # x = self.relu(self.conv32_1(x))
+    # x = self.relu(self.conv32_2(x))
+    # x = self.pool(x)
+    # x = self.dropout(x)
 
-    x = self.flat(x)
-    x = self.relu(self.dense1(x))
-    x = self.relu(self.dense2(x))
-    out = self.soft(self.dense_out(x))
+    # x = self.relu(self.conv64_1(x))
+    # x = self.relu(self.conv64_2(x))
+    # x = self.pool(x)
+    # x = self.dropout(x)
 
+    # x = self.flat(x)
+    # x = self.relu(self.dense1(x))
+    # x = self.relu(self.dense2(x))
+    # out = self.soft(self.dense_out(x))
+
+    x = self.conv(x)
+    out = self.fc(x)
 
     return out
