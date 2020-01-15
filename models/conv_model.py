@@ -1,4 +1,3 @@
-
 """
 This module implements a Convolutional Neural Network in PyTorch.
 You should fill in code into indicated sections.
@@ -12,7 +11,7 @@ class CNN(nn.Module):
   Once initialized an ConvNet object can perform forward.
   """
 
-  def __init__(self, n_channels=1, n_classes=10, conv_kernel=(3,3), pool_kernel=(2,2), device='cuda:0'):
+  def __init__(self, n_channels=1, n_classes=10, conv_kernel=(3,3), pool_kernel=(2,2), device='cpu'):
     """
     Initializes ConvNet object. 
     
@@ -73,6 +72,7 @@ class CNN(nn.Module):
         self.dense_out,
         self.soft
       )
+      
   def forward(self, x):
     """
     Performs forward pass of the input. Here an input tensor x is transformed through 
