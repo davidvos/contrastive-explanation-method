@@ -65,6 +65,7 @@ def train_cnn(
     dataset,
     iter=10,
     lr=0.001,
+    batch_size=64,
     device='cpu',
     save_fn="mnist-cnn",
     load_path="./models/saved_models/mnist-cnn.h5"
@@ -81,7 +82,7 @@ def train_cnn(
     device = torch.device(device)
 
     # specify loss function
-    criterion = nn.CrossEntropyLoss().device(device)
+    criterion = nn.CrossEntropyLoss().to(device)
 
     # Setup the loss and optimizer
     optimizer = torch.optim.SGD(model.parameters(), lr=lr)
@@ -89,16 +90,17 @@ def train_cnn(
     for j in range(iter):
         for step, (batch_inputs, batch_targets) in enumerate(dataset.train_loader):
                         
-            output = model.forward(batch_inputs.device(device))
+            output = model.forward(batch_inputs.to(device))
 
             optimizer.zero_grad()
 
-            loss = criterion(pred, batch_targets.device(device)) 
+            loss = criterion(output, batch_targets.to(device)) 
 
             loss.backward()
             optimizer.step()
 
-        print("loss after epoch {}:{} accuracy: {}".format(j, loss, get_accuracy(output, batch_targets)))
+            if step % 100 == 0:
+                print("loss after step {}:{} accuracy: {}".format(step, loss, get_accuracy(output, batch_targets)))
 
         if save_fn:
             torch.save(model.state_dict(), './models/saved_models/' + save_fn + ".h5")
