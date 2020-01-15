@@ -1,18 +1,12 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import os.path
-
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
+
+import os.path
 
 def train_ae(
     model,
     dataset,
-    iter=10,
+    iterations=10,
     lr=0.001,
     device='cpu',
     save_fn="mnist-cae",
@@ -35,7 +29,7 @@ def train_ae(
     # specify loss function
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-    for j in range(iter):
+    for j in range(iterations):
         for step, (batch_inputs, _) in enumerate(dataset.train_loader):
 
             output = model.forward(batch_inputs.device(device))
@@ -63,7 +57,7 @@ def get_accuracy(predictions, targets):
 def train_cnn(
     model,
     dataset,
-    iter=10,
+    iterations=10,
     lr=0.001,
     batch_size=64,
     device='cpu',
@@ -87,7 +81,7 @@ def train_cnn(
     # Setup the loss and optimizer
     optimizer = torch.optim.SGD(model.parameters(), lr=lr)
 
-    for j in range(iter):
+    for j in range(iterations):
         for step, (batch_inputs, batch_targets) in enumerate(dataset.train_loader):
                         
             output = model.forward(batch_inputs.to(device))
@@ -101,6 +95,7 @@ def train_cnn(
 
             if step % 100 == 0:
                 print("loss after step {}:{} accuracy: {}".format(step, loss, get_accuracy(output, batch_targets)))
+        print("done with iteration: {}/{}".format(j, iterations))
 
         if save_fn:
             torch.save(model.state_dict(), './models/saved_models/' + save_fn + ".h5")
