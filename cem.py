@@ -11,7 +11,6 @@ class ContrastiveExplanationMethod:
     def __init__(
         self,
         classifier,
-        mode: str = "PP",
         autoencoder = None,
         kappa: float = 0.,
         const: float = 10.,
@@ -46,7 +45,6 @@ class ContrastiveExplanationMethod:
         """
         
         self.explain_model = explain_model
-        self.mode = mode
         self.autoencoder = autoencoder
         self.kappa = kappa
         self.c_init = const
@@ -56,18 +54,21 @@ class ContrastiveExplanationMethod:
         self.feature_range = feature_range
         self.iterations = iterations
         self.n_searches = n_searches
+
+    def fista(self, orig_sample, mode="PN"):
+        """Fast Iterative Shrinkage Thresholding Algorithm implementation in pytorch
         
-        self.perturb_init = torch.zeros(orig_sample.shape)
+        Paper: https://doi.org/10.1137/080716542
+        
+        (Eq. 5) and (eq. 6) in https://arxiv.org/abs/1802.07623
+        """
+
+        # initialise search values
+        self.mode = mode
         self.delta = torch.zeros(orig_sample.shape)
         self.y = torch.zeros(orig_sample.shape)
 
-        # projection space for binary datasets (X/x_0) for PN and (x_0) for PP
-        if mode == "PN":
-            self.pert_space = (torch.ones(original.shape) - orig_sample)
-            self.pert_space /= torch.norm(self.pert_space, axis=1)
-        elif mode == "PP":
-            self.pert_space = orig_sample.copy()
-            self.pert_space /= torch.norm(self.pert_space, axis=1)
+        perturb_init = torch.zeros(orig_sample.shape)
 
         # to keep track of whether in the current search the perturbation loss reached 0
         self.loss_reached_zero = False
@@ -75,14 +76,14 @@ class ContrastiveExplanationMethod:
         self.best_delta = None
         self.best_loss = float("Inf")
         self.prev_deltas = []
-    
-    def fista(self, orig_sample):
-        """Fast Iterative Shrinkage Thresholding Algorithm implementation in pytorch
-        
-        Paper: https://doi.org/10.1137/080716542
-        
-        (Eq. 5) and (eq. 6) in https://arxiv.org/abs/1802.07623
-        """
+
+        # projection space for binary datasets (X/x_0) for PN and (x_0) for PP used in (eq. 5, 6)
+        if mode == "PN":
+            self.pert_space = (torch.ones(original.shape) - orig_sample)
+            self.pert_space /= torch.norm(self.pert_space, axis=1)
+        elif mode == "PP":
+            self.pert_space = orig_sample.copy()
+            self.pert_space /= torch.norm(self.pert_space, axis=1)
 
         while stopping_condition:
             
@@ -91,8 +92,8 @@ class ContrastiveExplanationMethod:
 
                 # initialise values for a new search
                 self.c = self.c_init
-                self.delta = self.perturb_init.copy()
-                self.y = self.perturb_init.copy()
+                self.delta = perturb_init.copy()
+                self.y = perturb_init.copy()
                 
                 for i in range(1, self.iterations + 1):
 
@@ -110,7 +111,7 @@ class ContrastiveExplanationMethod:
                     self.y = self.pert_space.dot((self.delta + i/(i + 3)(self.delta - self.prev_deltas[-1])))
 
                 if self.loss_reached_zero:
-                    self.c = self.c + self.c_init / 2
+                    self.c = (self.c + self.c_init) / 2
                 else:
                     self.c *= 10
 
@@ -174,7 +175,7 @@ class ContrastiveExplanationMethod:
             )
         
         if perturbation_loss == -kappa:
-            loss_reached_zero = True
+            self.loss_reached_zero = True
 
         return perturbation_loss
     
