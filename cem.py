@@ -60,7 +60,7 @@ class ContrastiveExplanationMethod:
         self.delta = torch.zeros(orig_sample.shape)
         self.y = torch.zeros(orig_sample.shape)
 
-        # projection space for binary datasets
+        # projection space for binary datasets (X/x_0) for PN and (x_0) for PP
         if mode == "PN":
             self.pert_space = (torch.ones(original.shape) - orig_sample)
             self.pert_space /= torch.norm(self.pert_space, axis=1)
