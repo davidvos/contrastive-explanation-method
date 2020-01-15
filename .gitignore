@@ -32,7 +32,7 @@ datasets/data/
 *.sqlite
 .ipynb_checkpoints/
 __pycache__/
-*.ipynb
+#*.ipynb
 alibi-mnist/cem_mnist.ipynb
 
 # OS generated files #
