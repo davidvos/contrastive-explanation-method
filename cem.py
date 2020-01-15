@@ -66,7 +66,7 @@ class ContrastiveExplanationMethod:
             self.pert_space /= torch.norm(self.pert_space, axis=1)
         elif mode == "PP":
             self.pert_space = orig_sample
-            self.pert_space =/ torch.norm(self.pert_space, axis=1)
+            self.pert_space /= torch.norm(self.pert_space, axis=1)
 
         # to keep track of whether in the current search the perturbation loss reached 0
         self.loss_reached_zero = False
