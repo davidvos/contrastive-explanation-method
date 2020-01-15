@@ -25,7 +25,7 @@ class CAE(nn.Module):
             nn.Conv2d(16, 16, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Conv2d(16, 1, kernel_size=3, padding=1)
-        )      
+        )
 
     def forward(self, x):
         out = self.encoder(x)

@@ -14,8 +14,8 @@ class FashionMNIST(Dataset):
             transforms.ToTensor()
         ])
 
-        self.train_data = datasets.FashionMNIST(root='./data/fashion_mnist', train=True, download=download, transform=transform)
-        self.test_data = datasets.FashionMNIST(root='./data/fashion_mnist', train=False, download=download, transform=transform)
+        self.train_data = datasets.FashionMNIST(root='./datasets/data/fashion_mnist', train=True, download=download, transform=transform)
+        self.test_data = datasets.FashionMNIST(root='./datasets/data/fashion_mnist', train=False, download=download, transform=transform)
         self.train_loader = torch.utils.data.DataLoader(self.train_data, batch_size=batch_size, shuffle=shuffle)
         self.test_loader = torch.utils.data.DataLoader(self.test_data, batch_size=batch_size, shuffle=shuffle)
 
