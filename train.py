@@ -24,7 +24,7 @@ def train_ae(
     device = torch.device(device)
 
     # specify loss function
-    criterion = nn.MSELoss().device(device)
+    criterion = nn.MSELoss().to(device)
 
     # specify loss function
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -32,11 +32,11 @@ def train_ae(
     for j in range(iterations):
         for step, (batch_inputs, _) in enumerate(dataset.train_loader):
 
-            output = model.forward(batch_inputs.device(device))
+            output = model.forward(batch_inputs.to(device))
 
             optimizer.zero_grad()
 
-            loss = criterion(output, batch_inputs)
+            loss = criterion(output, batch_inputs.to(device))
 
             loss.backward()
             optimizer.step()

@@ -29,7 +29,7 @@ class CAE(nn.Module):
 
     def forward(self, x):
         if torch.cuda.is_available() and self.device == 'cuda:0':
-            x.cuda()
+            x.to(self.device)
 
         out = self.encoder(x)
         out = self.decoder(out)
