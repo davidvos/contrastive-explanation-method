@@ -5,6 +5,8 @@ Paper:  https://arxiv.org/abs/1802.07623
 
 import numpy as np
 import torch
+import sys
+import ipdb
 
 class ContrastiveExplanationMethod:
     
@@ -12,10 +14,10 @@ class ContrastiveExplanationMethod:
         self,
         classifier,
         autoencoder = None,
-        kappa: float = 0.,
-        const: float = 10.,
+        kappa: float = .6,
+        const: float = 0.1,
         beta: float = .1,
-        gamma: float = 0.,
+        gamma: float = 100.,
         feature_range: tuple = (-1e10, 1e10),
         iterations: int = 1000,
         n_searches: int = 9,
@@ -47,7 +49,7 @@ class ContrastiveExplanationMethod:
         """
         classifier.train()
         autoencoder.train()
-        self.classifier = classifier
+        self.classifier = classifier.forward_no_sm
         self.autoencoder = autoencoder
         self.kappa = kappa
         self.c_init = const
@@ -76,11 +78,7 @@ class ContrastiveExplanationMethod:
         # self.y = torch.zeros(orig_sample.shape, requires_grad=True)
 
         orig_sample = orig_sample.view(28*28)
-
-        perturb_init = torch.zeros(orig_sample.shape, requires_grad=True)
-
-        # to keep track of whether in the current search the perturbation loss reached 0
-        self.loss_reached_zero = False
+        perturb_init = torch.zeros(orig_sample.shape)
 
         self.best_delta = None
         self.best_loss = float("Inf")
@@ -88,7 +86,7 @@ class ContrastiveExplanationMethod:
 
         # projection space for binary datasets (X/x_0) for PN and (x_0) for PP used in (eq. 5, 6)
         if mode == "PN":
-            self.pert_space = (torch.ones(orig_sample.shape) - orig_sample)
+            self.pert_space = torch.ones(orig_sample.shape) - orig_sample
             self.pert_space /= torch.norm(self.pert_space)
         elif mode == "PP":
             self.pert_space = orig_sample.clone()
@@ -97,51 +95,61 @@ class ContrastiveExplanationMethod:
         # See appendix A
         for s in range(self.n_searches):
 
+            # to keep track of whether in the current search the perturbation loss reached 0
+            self.pert_loss_reached_optimum = False
+
             # initialise values for a new search
-            self.c = self.c_init
-            delta = torch.zeros(orig_sample.shape, requires_grad=True)
+            delta = torch.zeros(orig_sample.shape)
             y = torch.zeros(orig_sample.shape, requires_grad=True)
-            orig_sample = orig_sample.clone().detach().requires_grad_(True)
+
+            # optimise for the slack variable y, with a square root decaying learning rate
+            optim = torch.optim.SGD([y], lr=self.learning_rate)
+            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer=optim, gamma=0.5)
 
             for i in range(1, self.iterations + 1):
 
                 # Reset the computational graph, otherwise we get a multiple backward passes error
-                delta = delta.clone().detach().requires_grad_(True)
-                y = y.clone().detach().requires_grad_(True)
+                #y = y.clone().detach().requires_grad_(True)
+                optim.zero_grad()
 
-                # if self.y.grad is not None:
-                #     self.y.grad.data.zero_()
-                #     self.delta.grad.data.zero_()
-                #     self.perturb_init.grad.data.zero_()
-
-                print("search iteration: {}".format(i))
+                y.requires_grad_(True)
 
                 # calculate loss as per (eq. 1, 3)
-                obj = (self.optimisation_obj(orig_sample, y)).sum()
-                self.loss = obj
-                print("current loss: {}".format(obj.item()))
+                loss = self.loss_fn(orig_sample, y).sum()
 
-                if obj < self.best_loss:
+                if loss < self.best_loss:
                     self.best_delta = delta
-                    self.best_loss = obj
+                    self.best_loss = loss
 
-                # calculate gradients
-                y.retain_grad()
-                delta.retain_grad()
-                orig_sample.retain_grad()
+                loss.backward()
+                optim.step()
+                lr_scheduler.step()
 
-                obj.backward()
-                
+                y.requires_grad_(False)
+
+                # store previous delta
                 self.prev_deltas.append(delta.clone().detach())
 
-                # project onto subspace that contains our possible features. (eq. 5, 6)
-                delta = self.pert_space.dot(self.shrink(y - self.learning_rate * y.grad)) * self.pert_space
-                y = self.pert_space.dot((delta + i/(i + 3)*(delta - self.prev_deltas[-1]))) * self.pert_space
+                if not (i % 50):
+                    print("search no: {}".format(s))
+                    print("search iteration: {}".format(i))
+                    print("current loss: {}".format(loss.item()))
+                    print("current y grad: {}".format(y.grad.sum()))
+                    print("current y: {}".format(y.sum()))
+                    print("current delta: {}".format(delta.sum()))
+                    print("has reached optimum:", self.pert_loss_reached_optimum)
+                    print("current c: {}".format(self.c))
+                    print("")
 
-            if self.loss_reached_zero:
+                # project onto subspace that contains our possible features. (eq. 5, 6)
+                delta = self.pert_space.dot(self.shrink(y)) * self.pert_space
+                y.data.copy_(self.pert_space.dot((delta + i/(i + 3)*(delta - self.prev_deltas[-1]))) * self.pert_space)
+
+            # adapt the perturbation loss coefficient
+            if self.pert_loss_reached_optimum:
                 self.c = (self.c + self.c_init) / 2
             else:
-                self.c *= 10
+                self.c = self.c * 10
 
     def shrink(self, z):
         """Element-wise shrinkage thresholding function.
@@ -158,25 +166,30 @@ class ContrastiveExplanationMethod:
         z_shrunk = torch.where(z < -self.beta, z_plus, z_shrunk)
         return z_shrunk
                         
-    def optimisation_obj(self, orig_sample, y):
+    def loss_fn(self, orig_sample, y):
         """
         Optimisation objective for PN (eq. 1) and for PP (eq. 3).
         """
-
         obj = (
-            self.c * self.loss_fn(orig_sample, y) +
-            self.beta * torch.sum(torch.abs(y)) +
+            self.c * self.perturbation_loss(orig_sample, y) +
             torch.norm(y) ** 2
         )
+
+        #print("perturbation loss: ", self.c * self.perturbation_loss(orig_sample, y))
+
+        #print("l2 loss: ", torch.norm(y) ** 2)
 
         if callable(self.autoencoder):
             if self.mode == "PN":
                 obj += self.gamma * torch.norm(orig_sample + y - self.autoencoder((orig_sample + y).view(-1, 1, 28, 28)).view(28*28)) ** 2 # TEMP FIX
             elif self.mode == "PP":
                 obj += self.gamma * torch.norm(y - self.autoencoder(y.view(-1, 1, 28, 28)).view(28*28)) ** 2  # TEMP FIX
+        #print("c", self.c)
+        #print("autoencoder loss: ", self.gamma * torch.norm(orig_sample + y - self.autoencoder((orig_sample + y).view(-1, 1, 28, 28)).view(28*28)) ** 2 ) # TEMP FIX)
+        #print("")
         return obj
 
-    def loss_fn(self, orig_sample, y):
+    def perturbation_loss(self, orig_sample, y):
         """
         Loss term f(x,d) for PN (eq. 2) and for PP (eq. 4).
         
@@ -185,34 +198,35 @@ class ContrastiveExplanationMethod:
         """
         
         orig_output = self.classifier(orig_sample.view(-1, 1, 28, 28))
+
+        # mask for the originally selected label (t_0)
         target_mask = torch.zeros(orig_output.shape)
         target_mask[torch.arange(orig_output.shape[0]), torch.argmax(orig_output)] = 1
+
+        # mask for the originally non-selected labels (i =/= t_0)
         nontarget_mask = torch.ones(orig_output.shape) - target_mask
-        
-        min_kappa = torch.tensor(-self.kappa, requires_grad=True)
 
         if self.mode == "PN":
             pert_output = self.classifier((orig_sample + y).view(-1, 1, 28, 28))
-
-            #perturbation_loss = torch.where()
-
             perturbation_loss = torch.max(
                 torch.max(target_mask * pert_output) - 
-                torch.max(nontarget_mask * pert_output),
-                min_kappa
+                torch.max(nontarget_mask * pert_output) + self.kappa,
+                torch.tensor(0.)
             )
         elif self.mode == "PP":
             pert_output = self.classifier(y.view(-1, 1, 28, 28))
             perturbation_loss = torch.max(
                 torch.max(nontarget_mask * pert_output) -
-                torch.max(target_mask * pert_output),
-                min_kappa
+                torch.max(target_mask * pert_output) + self.kappa,
+                torch.tensor(0.)
             )
 
-        if perturbation_loss.item() == -self.kappa:
-            self.loss_reached_zero = True
 
-        self.loss = perturbation_loss
+        ipdb.set_trace()
+
+
+        if perturbation_loss.item() == 0:
+            self.pert_loss_reached_optimum = True
 
         return perturbation_loss
     

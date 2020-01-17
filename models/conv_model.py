@@ -35,11 +35,23 @@ class CNN(nn.Module):
             nn.ReLU(),
             nn.Linear(in_features=200, out_features=200, bias=True),
             nn.ReLU(),
-            nn.Linear(in_features=200, out_features=n_classes, bias=True),
-            nn.Softmax()
+            nn.Linear(in_features=200, out_features=n_classes, bias=True)
         ).to(device)
           
     def forward(self, x):
+        if torch.cuda.is_available() and self.device == 'cuda:0':
+            x.cuda()
+
+        x = x.unsqueeze(0) if len(x.shape) != 4 else x
+
+        out = self.conv1(x)
+        out = self.conv2(out)
+        out = self.fc(out)
+        out = nn.Softmax(out)
+
+        return out
+
+    def forward_no_sm(self, x):
         if torch.cuda.is_available() and self.device == 'cuda:0':
             x.cuda()
 
