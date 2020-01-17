@@ -47,7 +47,7 @@ class CNN(nn.Module):
         out = self.conv1(x)
         out = self.conv2(out)
         out = self.fc(out)
-        out = nn.Softmax(out)
+        out = nn.functional.softmax(out)
 
         return out
 
