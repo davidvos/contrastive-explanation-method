@@ -181,7 +181,7 @@ class ContrastiveExplanationMethod:
             elif self.mode == "PP":
                 obj += self.gamma * torch.norm(y - self.autoencoder(y.view(-1, 1, 28, 28)).view(28*28)) ** 2  # TEMP FIX
 
-        ipdb.set_trace()
+        #ipdb.set_trace()
         return obj
 
     def perturbation_loss(self, orig_img, y):
