@@ -71,18 +71,14 @@ class ContrastiveExplanationMethod:
         
         (Eq. 5) and (eq. 6) in https://arxiv.org/abs/1802.07623
         """
-
         # initialise search values
         self.mode = mode
-        # self.delta = torch.zeros(orig_img.shape, requires_grad=True)
-        # self.y = torch.zeros(orig_img.shape, requires_grad=True)
 
         orig_img = orig_img.view(28*28)
         perturb_init = torch.zeros(orig_img.shape)
 
         self.best_delta = None
         self.best_loss = float("Inf")
-        self.prev_deltas = []
 
         self.c = 10
 
@@ -99,18 +95,17 @@ class ContrastiveExplanationMethod:
             # optimise for the slack variable y, with a square root decaying learning rate
             optim = torch.optim.SGD([y], lr=self.learning_rate)
 
-            for i in range(1, self.iterations + 1):
+            for i in range(self.iterations):
 
                 # Reset the computational graph, otherwise we get a multiple backward passes error
-                #y = y.clone().detach().requires_grad_(True)
                 optim.zero_grad()
 
                 y.requires_grad_(True)
 
                 # calculate loss as per (eq. 1, 3)
                 loss = self.loss_fn(orig_img, y).sum()
-
                 loss.backward()
+                
                 optim.step()
                 lr = poly_lr_scheduler(init_lr=self.learning_rate, cur_iter=i, end_learning_rate=0.0, lr_decay_iter=1, max_iter=self.iterations, power=0.5)
                 adjust_optim(optim, lr)
@@ -118,48 +113,39 @@ class ContrastiveExplanationMethod:
                 y.requires_grad_(False)
 
                 # store previous delta
-                self.prev_deltas.append(delta.clone().detach())
+                prev_delta = delta.clone().detach()
 
-                # # project onto subspace that contains our possible features. (eq. 5, 6)
-                # delta = self.pert_space.dot(self.shrink(y)) * self.pert_space
-                # y.data.copy_(self.pert_space.dot((delta + i/(i + 3)*(delta - self.prev_deltas[-1]))) * self.pert_space)
+                if self.pert_loss.item() == 0:
+                    if loss < self.best_loss:
+                        print("NEW BEST: {} - C: {}".format(loss.item(), self.c))
+                        self.best_delta = delta.clone().detach()
+                        self.best_loss = loss.item()
+                        self.best_c = self.c
+                        self.best_pert_loss = self.pert_loss.clone().detach()
 
-
-                if not (i % 1):
-                    print("search no: {}".format(s))
-                    print("search iteration: {}".format(i))
-                    print("current loss: {}".format(loss.item()))
-                    print("current y grad: {}".format(y.grad.sum()))
-                    print("current y: {}".format(y.sum()))
-                    print("current delta: {}".format(delta.sum()))
-                    print("has reached optimum:", self.pert_loss_reached_optimum)
-                    print("current c: {}".format(self.c))
-                    print("")
-
+                if not (i % 20):
+                    print("search: {} - iteration: {} - c value:{:.2f} - loss: {:.2f} - delta sum: {:.2f} - has reached optimum: {}".format(s, i, self.c, loss.item(), delta.sum().item(), self.pert_loss_reached_optimum))
 
                 # optimise for the sample + y since this is more stable
-                y = self.shrink(y - orig_img) + orig_img
+                y.data.copy_(self.shrink(y - orig_img) + orig_img)
 
-                # perform the projection step
+                # perform the first projection step
                 if self.mode == "PN":
-                    delta = torch.where(y > orig_img, y, orig_img)
+                    delta.data.copy_(torch.where(y > orig_img, y, orig_img))
                 elif self.mode == "PP":
-                    delta = torch.where(y <= orig_img, y, orig_img)
+                    delta.data.copy_(torch.where(y <= orig_img, y, orig_img))
 
-                delta_momentum = (delta + i/(i + 3)*(delta - self.prev_deltas[-1]))
+                delta_momentum = (delta + i/(i + 3)*(delta - prev_delta))
 
+                # perform second projection step
                 if self.mode == "PN":
-                    y = torch.where(delta_momentum > orig_img, delta_momentum, orig_img)
+                    y.data.copy_(torch.where(delta_momentum > orig_img, delta_momentum, orig_img))
                 elif self.mode == "PP":
-                    y = torch.where(delta_momentum <= orig_img, delta_momentum, orig_img)
+                    y.data.copy_(torch.where(delta_momentum <= orig_img, delta_momentum, orig_img))
 
             # adapt the perturbation loss coefficient
             if self.pert_loss_reached_optimum:
                 self.c = (self.c + self.c_init) / 2
-                if loss < self.best_loss:
-                    self.best_delta = delta.clone().detach()
-                    self.best_loss = loss
-                    self.best_c = self.c
             else:
                 self.c = self.c * 10
 
@@ -176,10 +162,10 @@ class ContrastiveExplanationMethod:
         z_shrunk = torch.where(torch.abs(z) <= self.beta, zeros, z_shrunk)
         z_shrunk = torch.where(z > self.beta, z_min, z_shrunk)
         z_shrunk = torch.where(z < -self.beta, z_plus, z_shrunk)
-        z_shrunk = torch.where(z > 0.5, torch.tensor(0.5), z_shrunk)
-        z_shrunk = torch.where(z < -0.5, torch.tensor(-0.5), z_shrunk)
+        z_shrunk = torch.where(z_shrunk > 0.5, torch.tensor(0.5), z_shrunk)
+        z_shrunk = torch.where(z_shrunk < -0.5, torch.tensor(-0.5), z_shrunk)
         return z_shrunk
-                        
+
     def loss_fn(self, orig_img, y):
         """
         Optimisation objective for PN (eq. 1) and for PP (eq. 3).
@@ -189,18 +175,13 @@ class ContrastiveExplanationMethod:
             torch.norm(y) ** 2
         )
 
-        #print("perturbation loss: ", self.c * self.perturbation_loss(orig_img, y))
-
-        #print("l2 loss: ", torch.norm(y) ** 2)
-
         if callable(self.autoencoder):
             if self.mode == "PN":
                 obj += self.gamma * torch.norm(orig_img + y - self.autoencoder((orig_img + y).view(-1, 1, 28, 28)).view(28*28)) ** 2 # TEMP FIX
             elif self.mode == "PP":
                 obj += self.gamma * torch.norm(y - self.autoencoder(y.view(-1, 1, 28, 28)).view(28*28)) ** 2  # TEMP FIX
-        #print("c", self.c)
-        #print("autoencoder loss: ", self.gamma * torch.norm(orig_img + y - self.autoencoder((orig_img + y).view(-1, 1, 28, 28)).view(28*28)) ** 2 ) # TEMP FIX)
-        #print("")
+
+        ipdb.set_trace()
         return obj
 
     def perturbation_loss(self, orig_img, y):
@@ -223,7 +204,7 @@ class ContrastiveExplanationMethod:
         if self.mode == "PN":
             pert_output = self.classifier((orig_img + y).view(-1, 1, 28, 28))
             perturbation_loss = torch.max(
-                -torch.max(target_mask * pert_output) + 
+                torch.max(target_mask * pert_output) -
                 torch.max(nontarget_mask * pert_output) + self.kappa,
                 torch.tensor(0.)
             )
@@ -237,12 +218,12 @@ class ContrastiveExplanationMethod:
 
 
         #ipdb.set_trace()
+        self.pert_loss = perturbation_loss
 
         if perturbation_loss.item() == 0:
             self.pert_loss_reached_optimum = True
 
         return perturbation_loss
-
 
 def poly_lr_scheduler(init_lr, cur_iter, lr_decay_iter=1,
                       max_iter=100, end_learning_rate=0.0, power=0.9):
