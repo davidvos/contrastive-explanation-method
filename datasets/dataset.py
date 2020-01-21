@@ -40,6 +40,7 @@ class Dataset:
                     visual_img = sample_image.numpy()[0]
                     plt.imshow(visual_img, cmap='gray')    
                     plt.show()
+                image -= 0.5
                 return image
 
     def get_batch(self, binary=False, train=True):
