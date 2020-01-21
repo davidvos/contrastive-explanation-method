@@ -8,7 +8,7 @@ from .dataset import Dataset
 
 class MNIST(Dataset):
 
-    def __init__(self, download=False, batch_size=4, shuffle=True):
+    def __init__(self, download=False, batch_size=4, shuffle=True, binary=True):
 
         transform = transforms.Compose([
             transforms.ToTensor()
