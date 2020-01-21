@@ -18,5 +18,6 @@ class FashionMNIST(Dataset):
         self.test_data = datasets.FashionMNIST(root='./datasets/data/fashion_mnist', train=False, download=download, transform=transform)
         self.train_loader = torch.utils.data.DataLoader(self.train_data, batch_size=batch_size, shuffle=shuffle)
         self.test_loader = torch.utils.data.DataLoader(self.test_data, batch_size=batch_size, shuffle=shuffle)
+        self.train_list = torch.utils.data.DataLoader(self.train_data, batch_size=1, shuffle=False)
+        self.test_list = torch.utils.data.DataLoader(self.test_data, batch_size=1, shuffle=False)
 
-    
