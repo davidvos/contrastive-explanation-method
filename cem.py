@@ -124,7 +124,7 @@ class ContrastiveExplanationMethod:
                         self.best_pert_loss = self.pert_loss.clone().detach()
 
                 if not (i % 20):
-                    print("search: {} - iteration: {} - c value:{:.2f} - loss: {:.2f} - delta sum: {:.2f} - has reached optimum: {}".format(s, i, self.c, loss.item(), delta.sum().item(), self.pert_loss_reached_optimum))
+                    print("search:{} iteration:{} lr:{:.2f} c value:{:.2f} loss: {:.2f} delta sum:{:.2f} optimum:{} y grad:{:.3f}".format(s, i, lr, self.c, loss.item(), delta.sum().item(), self.pert_loss_reached_optimum, y.grad.sum()))
 
                 # optimise for the sample + y since this is more stable
                 y.data.copy_(self.shrink(y - orig_img) + orig_img)

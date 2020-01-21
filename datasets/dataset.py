@@ -20,7 +20,7 @@ class Dataset:
                 plt.imshow(visual_img, cmap='gray')    
                 plt.show()     
 
-
+            sample_image -= 0.5
    
             return sample_image, sample_label
 
@@ -33,4 +33,7 @@ class Dataset:
             if binary:
                 images[images < 0.5] = 0
                 images[images >= 0.5] = 1
+
+            images -= 0.5
+
             return images, labels
