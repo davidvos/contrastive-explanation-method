@@ -187,9 +187,9 @@ class ContrastiveExplanationMethod:
 
         if callable(self.autoencoder):
             if self.mode == "PN":
-                obj += self.gamma * torch.norm(y + 0.5 - self.autoencoder((y + 0.5).view(-1, 1, 28, 28)).view(28*28)) ** 2 # TEMP FIX model trained on 0 to 1 range
+                obj += self.gamma * torch.norm(y - self.autoencoder((y).view(-1, 1, 28, 28)).view(28*28)) ** 2 # TEMP FIX model trained on 0 to 1 range
             elif self.mode == "PP":
-                obj += self.gamma * torch.norm(orig_img - y + 0.5 - self.autoencoder((orig_img - y).view(-1, 1, 28, 28) + 0.5).view(28*28)) ** 2  # TEMP FIX
+                obj += self.gamma * torch.norm(orig_img - y - self.autoencoder((orig_img - y).view(-1, 1, 28, 28)).view(28*28)) ** 2  # TEMP FIX
 
         #ipdb.set_trace()
         return obj
