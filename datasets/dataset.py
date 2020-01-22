@@ -20,7 +20,9 @@ class Dataset:
                 plt.imshow(visual_img, cmap='gray')    
                 plt.show()     
 
-            sample_image -= 0.5
+            norm_img = (sample_image-torch.min(sample_image))/(torch.max(sample_image) - torch.min(sample_image))
+
+            #sample_image = norm_img - 0.5
             return sample_image, sample_label
 
     def get_sample_by_class(self, train=True, class_label=1, show_image=True):

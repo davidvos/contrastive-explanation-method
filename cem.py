@@ -91,15 +91,6 @@ class ContrastiveExplanationMethod:
             # to keep track of whether in the current search the perturbation loss reached 0
             self.pert_loss_reached_optimum = False
 
-            # initialise values for a new search
-            # if self.mode == "PP":
-            #     delta = torch.zeros(orig_img.shape)
-            #     y = torch.zeros(orig_img.shape, requires_grad=True)
-            # elif self.mode == "PN":
-            #     delta = orig_img.clone().detach()
-            #     y = orig_img.clone().detach()
-            #     y.requires_grad_(True)
-
             delta = torch.zeros(orig_img.shape)
             y = torch.zeros(orig_img.shape, requires_grad=True)
 
@@ -198,7 +189,7 @@ class ContrastiveExplanationMethod:
             if self.mode == "PN":
                 obj += self.gamma * torch.norm(y + 0.5 - self.autoencoder((y + 0.5).view(-1, 1, 28, 28)).view(28*28)) ** 2 # TEMP FIX model trained on 0 to 1 range
             elif self.mode == "PP":
-                obj += self.gamma * torch.norm(orig_img - y + 0.5 - self.autoencoder(orig_img - y.view(-1, 1, 28, 28) + 0.5).view(28*28)) ** 2  # TEMP FIX
+                obj += self.gamma * torch.norm(orig_img - y + 0.5 - self.autoencoder((orig_img - y).view(-1, 1, 28, 28) + 0.5).view(28*28)) ** 2  # TEMP FIX
 
         #ipdb.set_trace()
         return obj
