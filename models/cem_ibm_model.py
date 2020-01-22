@@ -19,7 +19,8 @@ class AEADEN:
         c_init: float = 0.1,
         beta: float = .1, 
         gamma: float = 100.,
-        n_searches=9
+        n_searches=9,
+        evaluate_every: int = 50
     ):
 
         assert mode in ["PP","PN"], "Model mode has to be set to either 'PP' or 'PN' given: {}".format(mode)
@@ -50,6 +51,8 @@ class AEADEN:
         self.const = torch.zeros(batch_size, dtype=torch.double)
         
         self.global_step = torch.tensor([0.0], dtype=torch.double, requires_grad=False)
+
+        self.eval = evaluate_every
 
         self.delta_tracker = []
 
@@ -94,7 +97,7 @@ class AEADEN:
 
                 self.loss_to_opt.backward()
                 
-                if not (iteration % 20):
+                if not (iteration % self.eval):
                     print("search:{} iteration:{} lr:{:.2f} c value:{:.2f} loss: {:.2f} delta sum:{:.2f} optimum:{} y grad:{:.3f}".format(s, iteration, lr, self.c, self.loss_alien_sample_s.item(), self.delta_k.sum().item(), self.pert_loss_reached_optimum, self.y_k.grad.sum()))
 
 
@@ -226,7 +229,7 @@ class AEADEN:
         self.l2_dist   = torch.sum(torch.pow(self.delta_img, 2), dim=[1,2,3])
         self.l2_dist_s = torch.sum(torch.pow(self.y_img, 2), dim=[1,2,3])
 
-        self.dist      = self.l2_dist + torch.mul(self.l1_dist, self.beta)
+        self.dist      = self.l2_dist   + torch.mul(self.l1_dist, self.beta)
         self.dist_s    = self.l2_dist_s + torch.mul(self.l1_dist_s, self.beta)
 
         #sum the losses
@@ -243,13 +246,13 @@ class AEADEN:
         self.AE.double()
         if self.mode == "PP":
             self.AE_loss   = self.gamma * torch.pow(torch.norm(self.AE(self.delta_img.view(-1,1,28,28)+0.5)-0.5-self.delta_img), 2)
-            self.AE_loss_s = self.gamma * torch.pow(torch.norm(self.AE(self.delta_img.view(-1,1,28,28)+0.5)-0.5-self.y_img), 2)
+            self.AE_loss_s = self.gamma * torch.pow(torch.norm(self.AE(self.y_img.view(-1,1,28,28)+0.5)-0.5-self.y_img), 2)
 
         elif self.mode == "PN":
             self.AE_loss   = self.gamma * torch.pow(torch.norm(self.AE(self.delta_k.view(-1,1,28,28)+0.5)-0.5-self.delta_k), 2)
             self.AE_loss_s = self.gamma * torch.pow(torch.norm(self.AE(self.y_k.view(-1,1,28,28)+0.5)-0.5-self.y_k), 2)
 
-        self.loss_to_opt = self.loss_alien_sample_s + self.loss_l2_s + self.AE_loss_s
+        self.loss_to_opt  = self.loss_alien_sample_s + self.loss_l2_s + self.AE_loss_s
         self.loss_overall = self.loss_alien_sample   + self.loss_l2   + self.AE_loss + torch.mul(self.beta, self.loss_l1)
 
 
