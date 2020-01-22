@@ -32,6 +32,8 @@ def train_ae(
     for j in range(iterations):
         for step, (batch_inputs, _) in enumerate(dataset.train_loader):
 
+            batch_inputs += 0.5
+
             output = model.forward(batch_inputs.to(device))
 
             optimizer.zero_grad()
