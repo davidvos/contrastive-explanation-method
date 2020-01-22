@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import sys
 import ipdb
+import matplotlib.pyplot as plt
 
 class ContrastiveExplanationMethod:
     
@@ -80,6 +81,8 @@ class ContrastiveExplanationMethod:
         self.best_delta = None
         self.best_loss = float("Inf")
 
+        self.all_best = []
+
         self.c = 10
 
         # See appendix A
@@ -89,6 +92,14 @@ class ContrastiveExplanationMethod:
             self.pert_loss_reached_optimum = False
 
             # initialise values for a new search
+            # if self.mode == "PP":
+            #     delta = torch.zeros(orig_img.shape)
+            #     y = torch.zeros(orig_img.shape, requires_grad=True)
+            # elif self.mode == "PN":
+            #     delta = orig_img.clone().detach()
+            #     y = orig_img.clone().detach()
+            #     y.requires_grad_(True)
+
             delta = torch.zeros(orig_img.shape)
             y = torch.zeros(orig_img.shape, requires_grad=True)
 
@@ -108,7 +119,7 @@ class ContrastiveExplanationMethod:
                 
                 optim.step()
                 lr = poly_lr_scheduler(init_lr=self.learning_rate, cur_iter=i, end_learning_rate=0.0, lr_decay_iter=1, max_iter=self.iterations, power=0.5)
-                adjust_optim(optim, lr)
+                optim.param_groups[0]['lr'] = lr
 
                 y.requires_grad_(False)
 
@@ -119,9 +130,12 @@ class ContrastiveExplanationMethod:
                     if loss < self.best_loss:
                         print("NEW BEST: {} - C: {}".format(loss.item(), self.c))
                         self.best_delta = delta.clone().detach()
+                        self.all_best.append(delta.clone().detach())
                         self.best_loss = loss.item()
                         self.best_c = self.c
                         self.best_pert_loss = self.pert_loss.clone().detach()
+
+                        #plt.imshow(self.best_delta.view(28,28))
 
                 if not (i % 20):
                     print("search:{} iteration:{} lr:{:.2f} c value:{:.2f} loss: {:.2f} delta sum:{:.2f} optimum:{} y grad:{:.3f}".format(s, i, lr, self.c, loss.item(), delta.sum().item(), self.pert_loss_reached_optimum, y.grad.sum()))
@@ -158,12 +172,15 @@ class ContrastiveExplanationMethod:
         z_min = z - self.beta
         z_plus = z + self.beta
         
+        #print(z)
         z_shrunk = z.clone()
         z_shrunk = torch.where(torch.abs(z) <= self.beta, zeros, z_shrunk)
         z_shrunk = torch.where(z > self.beta, z_min, z_shrunk)
         z_shrunk = torch.where(z < -self.beta, z_plus, z_shrunk)
         z_shrunk = torch.where(z_shrunk > 0.5, torch.tensor(0.5), z_shrunk)
         z_shrunk = torch.where(z_shrunk < -0.5, torch.tensor(-0.5), z_shrunk)
+        #print(z_shrunk)
+        #ipdb.set_trace()
         return z_shrunk
 
     def loss_fn(self, orig_img, y):
@@ -175,11 +192,13 @@ class ContrastiveExplanationMethod:
             torch.norm(y) ** 2
         )
 
+        #ipdb.set_trace()
+
         if callable(self.autoencoder):
             if self.mode == "PN":
-                obj += self.gamma * torch.norm(orig_img + y - 0.5 - self.autoencoder((orig_img + y - 0.5).view(-1, 1, 28, 28)).view(28*28)) ** 2 # TEMP FIX model trained on 0 to 1 range
+                obj += self.gamma * torch.norm(y + 0.5 - self.autoencoder((y + 0.5).view(-1, 1, 28, 28)).view(28*28)) ** 2 # TEMP FIX model trained on 0 to 1 range
             elif self.mode == "PP":
-                obj += self.gamma * torch.norm(y - 0.5 - self.autoencoder(y.view(-1, 1, 28, 28) - 0.5).view(28*28)) ** 2  # TEMP FIX
+                obj += self.gamma * torch.norm(orig_img - y + 0.5 - self.autoencoder(orig_img - y.view(-1, 1, 28, 28) + 0.5).view(28*28)) ** 2  # TEMP FIX
 
         #ipdb.set_trace()
         return obj
@@ -202,14 +221,14 @@ class ContrastiveExplanationMethod:
         nontarget_mask = torch.ones(orig_output.shape) - target_mask
 
         if self.mode == "PN":
-            pert_output = self.classifier((orig_img + y).view(-1, 1, 28, 28))
+            pert_output = self.classifier((y).view(-1, 1, 28, 28))
             perturbation_loss = torch.max(
                 torch.max(target_mask * pert_output) -
                 torch.max(nontarget_mask * pert_output) + self.kappa,
                 torch.tensor(0.)
             )
         elif self.mode == "PP":
-            pert_output = self.classifier(y.view(-1, 1, 28, 28))
+            pert_output = self.classifier((orig_img - y).view(-1, 1, 28, 28))
             perturbation_loss = torch.max(
                 torch.max(nontarget_mask * pert_output) -
                 torch.max(target_mask * pert_output) + self.kappa,
@@ -217,7 +236,7 @@ class ContrastiveExplanationMethod:
             )
 
 
-        #ipdb.set_trace()
+        ##ipdb.set_trace()
         self.pert_loss = perturbation_loss
 
         if perturbation_loss.item() == 0:
@@ -238,7 +257,3 @@ def poly_lr_scheduler(init_lr, cur_iter, lr_decay_iter=1,
     lr = (init_lr-end_learning_rate)*(1 - cur_iter/max_iter)**power + end_learning_rate
 
     return lr
-
-
-def adjust_optim(optimizer, lr):
-    optimizer.param_groups[0]['lr'] = lr
