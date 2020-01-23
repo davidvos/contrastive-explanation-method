@@ -180,7 +180,7 @@ class ContrastiveExplanationMethod:
         """
         obj = (
             self.c * self.perturbation_loss(orig_img, y) +
-            torch.norm(y) ** 2
+            torch.norm(orig_img - y) ** 2
         )
 
         #ipdb.set_trace()
