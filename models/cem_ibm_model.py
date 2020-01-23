@@ -98,7 +98,7 @@ class AEADEN:
                 self.loss_to_opt.backward()
                 
                 if not (iteration % self.eval):
-                    print("search:{} iteration:{} lr:{:.2f} c value:{:.2f} loss: {:.2f} delta sum:{:.2f} optimum:{} y grad:{:.3f}".format(s, iteration, lr, self.c, self.loss_alien_sample_s.item(), self.delta_k.sum().item(), self.pert_loss_reached_optimum, self.y_k.grad.sum()))
+                    print("search:{} iteration:{:>4} lr:{:.2f} c value:{:>5.2E} loss: {:.2E} delta sum:{:.2E} optimum:{} y grad:{:.3E}".format(s, iteration, lr, self.c, self.loss_alien_sample_s.item(), self.delta_k.sum().item(), self.pert_loss_reached_optimum, self.y_k.grad.sum()))
 
 
                 optim.step()
