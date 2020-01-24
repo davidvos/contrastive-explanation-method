@@ -76,14 +76,16 @@ class ContrastiveExplanationMethod:
         self.best_loss = float('Inf')
         self.best_delta = None
 
-        self.saved_deltas = []
-
         for search in range(self.n_searches):
 
             found_optimum = False
 
-            adv = torch.zeros(orig.shape) # delta_k
-            adv_s = torch.zeros(orig.shape, requires_grad=True) # y_k
+            # adv = torch.zeros(orig.shape) # delta_k
+            # adv_s = torch.zeros(orig.shape, requires_grad=True) # y_k
+
+            adv = torch.zeros(orig.shape)
+            adv_s = torch.zeros(orig.shape, requires_grad=True)
+            adv_s.requires_grad_(True)
 
             # optimise for the slack variable y, with a square root decaying learning rate
             optim = torch.optim.SGD([adv_s], lr=self.learning_rate)
@@ -199,7 +201,6 @@ class ContrastiveExplanationMethod:
                         print("new best: {}".format(loss_to_optimise))
                         self.best_loss = loss_to_optimise
                         self.best_delta = adv.detach().clone()
-                        self.saved_deltas.append(adv.clone().detach())
 
                 if not (step % 20):
                     print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(search, step, const, loss_to_optimise, found_optimum))
