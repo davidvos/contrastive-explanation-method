@@ -140,6 +140,8 @@ class ContrastiveExplanationMethod:
                     loss_ae_dist = self.gamma * (torch.norm(self.autoencoder(adv.view(-1,1,28,28) + 0.5).view(28*28) - 0.5 - adv)**2)
                     loss_ae_dist_s = self.gamma * (torch.norm(self.autoencoder(adv_s.view(-1,1,28,28) + 0.5).view(28*28) - 0.5 - adv_s)**2)
 
+                #ipdb.set_trace()
+
                 loss_to_optimise = loss_attack_s + l2_dist_s + loss_ae_dist_s
                 loss_for_display_purposes = loss_attack + l2_dist + loss_ae_dist
 
@@ -160,15 +162,11 @@ class ContrastiveExplanationMethod:
                 # fast iterative shrinkage thresholding function
                 zt = step/(step+3)
 
-                # CHECK HIERRRRRRRRRRRRRRR
-
                 cond1 = torch.gt(adv_s - orig, self.beta)
                 cond2 = torch.le(torch.abs(adv_s - orig), self.beta)
                 cond3 = torch.lt(adv_s- orig, -self.beta)
                 upper = torch.min(adv_s - self.beta, torch.tensor(0.5))
                 lower = torch.max(adv_s + self.beta, torch.tensor(-0.5))
-
-                # TOT HIER
 
                 assign_adv = cond1.type(torch.float) * upper + cond2.type(torch.float) * orig + cond3.type(torch.float) * lower
 
@@ -201,10 +199,10 @@ class ContrastiveExplanationMethod:
                         print("new best: {}".format(loss_to_optimise))
                         self.best_loss = loss_to_optimise
                         self.best_delta = adv.detach().clone()
+                        self.saved_deltas.append(adv.clone().detach())
 
                 if not (step % 20):
                     print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(search, step, const, loss_to_optimise, found_optimum))
-                    self.saved_deltas.append(adv.clone().detach())
 
             if found_optimum:
                 const = (self.c_init + const) / 2
