@@ -17,6 +17,7 @@ class ContrastiveExplanationMethod:
         autoencoder = None,
         kappa: float = .6,
         const: float = 0.1,
+        c_init: float = 10.0,
         beta: float = .1,
         gamma: float = 100.,
         feature_range: tuple = (-1e10, 1e10),
@@ -54,7 +55,7 @@ class ContrastiveExplanationMethod:
         self.autoencoder = autoencoder
         self.kappa = kappa
         self.c_init = const
-        self.c = const
+        self.c = c_init
         self.beta = beta
         self.gamma = gamma
         self.feature_range = feature_range
@@ -68,13 +69,25 @@ class ContrastiveExplanationMethod:
 
     def fista(self, orig, mode="PN"):
 
-        const = 10
+        if mode not in ["PN", "PP"]:
+            raise ValueError("Invalid mode. Please select either 'PP' or 'PN' as mode.")
+
+        const = self.c
         step = 0
 
         orig = orig.view(28*28)
 
         self.best_loss = float('Inf')
         self.best_delta = None
+
+        orig_output = self.classifier(orig.view(-1, 1, 28, 28))
+
+        # mask for the originally selected label (t_0)
+        target_mask = torch.zeros(orig_output.shape)
+        target_mask[torch.arange(orig_output.shape[0]), torch.argmax(orig_output)] = 1
+
+        # mask for the originally non-selected labels (i =/= t_0)
+        nontarget_mask = torch.ones(orig_output.shape) - target_mask
 
         for search in range(self.n_searches):
 
@@ -105,14 +118,6 @@ class ContrastiveExplanationMethod:
                 elif mode == "PN":
                     img_to_enforce_label_score = self.classifier(adv.view(-1, 1, 28, 28))
                     img_to_enforce_label_score_s = self.classifier(adv_s.view(-1, 1, 28, 28))
-
-                orig_output = self.classifier(orig.view(-1, 1, 28, 28))
-                # mask for the originally selected label (t_0)
-                target_mask = torch.zeros(orig_output.shape)
-                target_mask[torch.arange(orig_output.shape[0]), torch.argmax(orig_output)] = 1
-
-                # mask for the originally non-selected labels (i =/= t_0)
-                nontarget_mask = torch.ones(orig_output.shape) - target_mask
 
                 # regularisation terms
                 l2_dist = torch.sum(delta ** 2)
@@ -202,7 +207,7 @@ class ContrastiveExplanationMethod:
                         self.best_loss = loss_to_optimise
                         self.best_delta = adv.detach().clone()
 
-                if not (step % 20):
+                if not (step % 500):
                     print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(search, step, const, loss_to_optimise, found_optimum))
 
             if found_optimum:
