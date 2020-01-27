@@ -246,7 +246,7 @@ class AEADEN:
         self.AE.double()
         if self.mode == "PP":
             self.AE_loss   = self.gamma * torch.pow(torch.norm(self.AE(self.delta_img.view(-1,1,28,28)+0.5)-0.5-self.delta_img), 2)
-            self.AE_loss_s = self.gamma * torch.pow(torch.norm(self.AE(self.y_img.view(-1,1,28,28)+0.5)-0.5-self.y_img), 2)
+            self.AE_loss_s = self.gamma * torch.pow(torch.norm(self.AE(self.delta_img.view(-1,1,28,28)+0.5)-0.5-self.y_img), 2)
 
         elif self.mode == "PN":
             self.AE_loss   = self.gamma * torch.pow(torch.norm(self.AE(self.delta_k.view(-1,1,28,28)+0.5)-0.5-self.delta_k), 2)
