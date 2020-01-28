@@ -9,12 +9,13 @@ import sys
 import ipdb
 import matplotlib.pyplot as plt
 
+
 class ContrastiveExplanationMethod:
-    
+
     def __init__(
         self,
         classifier,
-        autoencoder = None,
+        autoencoder=None,
         kappa: float = .6,
         const: float = 0.1,
         beta: float = .1,
@@ -25,9 +26,8 @@ class ContrastiveExplanationMethod:
         learning_rate: float = 0.1,
         batch: bool = False,
     ):
-        """
-        Initialise the CEM model.
-        
+        """ Initialise the CEM model.
+
         classifier
             classification model to be explained.
         mode
@@ -62,9 +62,9 @@ class ContrastiveExplanationMethod:
         self.n_searches = n_searches
         self.learning_rate = learning_rate
 
-        # if input is batch (as opposed to single sample), reduce dimensions along second axis, otherwise reduce along first axis
+        # if input is batch (as opposed to single sample), reduce dimensions
+        # along second axis, otherwise reduce along first axis
         self.reduce_dim = int(batch)
-
 
     def fista(self, orig, mode="PN"):
 
@@ -80,10 +80,12 @@ class ContrastiveExplanationMethod:
 
         # mask for the originally selected label (t_0)
         target_mask = torch.zeros(orig_output.shape, requires_grad=False)
-        target_mask[torch.arange(orig_output.shape[0]), torch.argmax(orig_output)] = 1
+        target_mask[torch.arange(orig_output.shape[0]),
+                    torch.argmax(orig_output)] = 1
 
         # mask for the originally non-selected labels (i =/= t_0)
-        nontarget_mask = torch.ones(orig_output.shape, requires_grad=False) - target_mask
+        nontarget_mask = torch.ones(
+            orig_output.shape, requires_grad=False) - target_mask
 
         pos_lim = torch.tensor(.5, requires_grad=False)
         neg_lim = torch.tensor(-.5, requires_grad=False)
@@ -100,7 +102,8 @@ class ContrastiveExplanationMethod:
 
             assign_adv = torch.zeros(orig.shape, requires_grad=False)
 
-            # optimise for the slack variable y, with a square root decaying learning rate
+            # optimise for the slack variable y, with a square root
+            # decaying learning rate
             optim = torch.optim.SGD([adv_s], lr=self.learning_rate)
 
             for step in range(1, self.iterations + 1):
@@ -112,13 +115,16 @@ class ContrastiveExplanationMethod:
                 delta = orig - adv
                 delta_s = orig - adv_s
 
-                
                 if mode == "PP":
-                    img_to_enforce_label_score = self.classifier(delta.view(-1, 1, 28, 28))
-                    img_to_enforce_label_score_s = self.classifier(delta_s.view(-1, 1, 28, 28))
+                    img_to_enforce_label_score = self.classifier(
+                        delta.view(-1, 1, 28, 28))
+                    img_to_enforce_label_score_s = self.classifier(
+                        delta_s.view(-1, 1, 28, 28))
                 elif mode == "PN":
-                    img_to_enforce_label_score = self.classifier(adv.view(-1, 1, 28, 28))
-                    img_to_enforce_label_score_s = self.classifier(adv_s.view(-1, 1, 28, 28))
+                    img_to_enforce_label_score = self.classifier(
+                        adv.view(-1, 1, 28, 28))
+                    img_to_enforce_label_score_s = self.classifier(
+                        adv_s.view(-1, 1, 28, 28))
 
                 # regularisation terms
                 l2_dist = torch.sum(delta ** 2)
@@ -129,31 +135,51 @@ class ContrastiveExplanationMethod:
                 en_dist = l2_dist + self.beta * l1_dist
                 en_dist_s = l2_dist_s + self.beta * l1_dist_s
 
-                target_lab_score = torch.max(target_mask * img_to_enforce_label_score)
-                target_lab_score_s = torch.max(target_mask * img_to_enforce_label_score_s)
-                nontarget_lab_score = torch.max(nontarget_mask * img_to_enforce_label_score)
-                nontarget_lab_score_s = torch.max(nontarget_mask * img_to_enforce_label_score_s)
+                target_lab_score = torch.max(
+                    target_mask * img_to_enforce_label_score)
+                target_lab_score_s = torch.max(
+                    target_mask * img_to_enforce_label_score_s)
+                nontarget_lab_score = torch.max(
+                    nontarget_mask * img_to_enforce_label_score)
+                nontarget_lab_score_s = torch.max(
+                    nontarget_mask * img_to_enforce_label_score_s)
 
                 if mode == "PP":
-                    loss_attack = const * torch.max(torch.tensor(0.), nontarget_lab_score - target_lab_score + self.kappa)
-                    loss_attack_s = const * torch.max(torch.tensor(0.), nontarget_lab_score_s - target_lab_score_s + self.kappa)
+                    loss_attack = const * \
+                        torch.max(torch.tensor(0.), nontarget_lab_score -
+                                  target_lab_score + self.kappa)
+                    loss_attack_s = const * \
+                        torch.max(torch.tensor(
+                            0.), nontarget_lab_score_s - target_lab_score_s + self.kappa)
                 elif mode == "PN":
-                    loss_attack = const * torch.max(torch.tensor(0.), -nontarget_lab_score + target_lab_score + self.kappa)
-                    loss_attack_s = const * torch.max(torch.tensor(0.), -nontarget_lab_score_s + target_lab_score_s + self.kappa)
+                    loss_attack = const * \
+                        torch.max(torch.tensor(
+                            0.), -nontarget_lab_score + target_lab_score + self.kappa)
+                    loss_attack_s = const * \
+                        torch.max(torch.tensor(
+                            0.), -nontarget_lab_score_s + target_lab_score_s + self.kappa)
 
                 if mode == "PP" and callable(self.autoencoder):
-                    loss_ae_dist = self.gamma * (torch.norm(self.autoencoder(delta.view(-1,1,28,28) + 0.5).view(28*28) - 0.5 - delta)**2)
-                    loss_ae_dist_s = self.gamma * (torch.norm(self.autoencoder(delta_s.view(-1,1,28,28) + 0.5).view(28*28) - 0.5 - delta_s)**2)
+                    loss_ae_dist = self.gamma * \
+                        (torch.norm(self.autoencoder(
+                            delta.view(-1, 1, 28, 28) + 0.5).view(28*28) - 0.5 - delta)**2)
+                    loss_ae_dist_s = self.gamma * \
+                        (torch.norm(self.autoencoder(delta_s.view(-1, 1,
+                                                                  28, 28) + 0.5).view(28*28) - 0.5 - delta_s)**2)
                 elif mode == "PN" and callable(self.autoencoder):
-                    loss_ae_dist = self.gamma * (torch.norm(self.autoencoder(adv.view(-1,1,28,28) + 0.5).view(28*28) - 0.5 - adv)**2)
-                    loss_ae_dist_s = self.gamma * (torch.norm(self.autoencoder(adv_s.view(-1,1,28,28) + 0.5).view(28*28) - 0.5 - adv_s)**2)
+                    loss_ae_dist = self.gamma * \
+                        (torch.norm(self.autoencoder(
+                            adv.view(-1, 1, 28, 28) + 0.5).view(28*28) - 0.5 - adv)**2)
+                    loss_ae_dist_s = self.gamma * \
+                        (torch.norm(self.autoencoder(
+                            adv_s.view(-1, 1, 28, 28) + 0.5).view(28*28) - 0.5 - adv_s)**2)
 
-                #ipdb.set_trace()
+                # ipdb.set_trace()
 
                 loss_to_optimise = loss_attack_s + l2_dist_s + loss_ae_dist_s
                 loss_for_display_purposes = loss_attack + l2_dist + loss_ae_dist
 
-                #ipdb.set_trace()
+                # ipdb.set_trace()
 
                 if loss_attack_s.item() == 0:
                     found_optimum = True
@@ -161,8 +187,9 @@ class ContrastiveExplanationMethod:
                 # optimise for the slack variable, adjust lr
                 loss_to_optimise.backward()
                 optim.step()
-                
-                lr = poly_lr_scheduler(init_lr=self.learning_rate, cur_iter=step, end_learning_rate=0.0, lr_decay_iter=1, max_iter=self.iterations, power=0.5)
+
+                lr = poly_lr_scheduler(init_lr=self.learning_rate, cur_iter=step,
+                                       end_learning_rate=0.0, lr_decay_iter=1, max_iter=self.iterations, power=0.5)
                 optim.param_groups[0]['lr'] = lr
 
                 adv_s.requires_grad_(False)
@@ -172,24 +199,24 @@ class ContrastiveExplanationMethod:
 
                 cond1 = torch.gt(adv_s - orig, self.beta)
                 cond2 = torch.le(torch.abs(adv_s - orig), self.beta)
-                cond3 = torch.lt(adv_s- orig, -self.beta)
+                cond3 = torch.lt(adv_s - orig, -self.beta)
                 upper = torch.min(adv_s - self.beta, pos_lim)
                 lower = torch.max(adv_s + self.beta, neg_lim)
 
-                assign_adv = cond1 * upper + cond2* orig + cond3 * lower
+                assign_adv = cond1 * upper + cond2 * orig + cond3 * lower
 
-                #ipdb.set_trace()
+                # ipdb.set_trace()
 
-                cond4 = torch.gt(assign_adv - orig, 0)#.type(torch.float)
-                cond5 = torch.le(assign_adv - orig, 0)#.type(torch.float)
+                cond4 = torch.gt(assign_adv - orig, 0)  # .type(torch.float)
+                cond5 = torch.le(assign_adv - orig, 0)  # .type(torch.float)
                 if mode == "PP":
                     assign_adv = cond5 * assign_adv + cond4 * orig
                 elif mode == "PN":
                     assign_adv = cond4 * assign_adv + cond5 * orig
 
                 assign_adv_s = assign_adv + zt * (assign_adv - adv)
-                cond6 = torch.gt(assign_adv_s - orig, 0)#.type(torch.float)
-                cond7 = torch.le(assign_adv_s - orig, 0)#.type(torch.float)
+                cond6 = torch.gt(assign_adv_s - orig, 0)  # .type(torch.float)
+                cond7 = torch.le(assign_adv_s - orig, 0)  # .type(torch.float)
 
                 if mode == "PP":
                     assign_adv_s = cond7 * assign_adv_s + cond6 * orig
@@ -209,7 +236,8 @@ class ContrastiveExplanationMethod:
                         self.best_delta = adv.detach().clone()
 
                 if not (step % 20):
-                    print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(search, step, const, loss_to_optimise, found_optimum))
+                    print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(
+                        search, step, const, loss_to_optimise, found_optimum))
 
             if found_optimum:
                 const = (self.c_init + const) / 2
@@ -227,6 +255,7 @@ def poly_lr_scheduler(init_lr, cur_iter, lr_decay_iter=1,
         :param power is a polymomial power
 
     """
-    lr = (init_lr-end_learning_rate)*(1 - cur_iter/max_iter)**power + end_learning_rate
+    lr = (init_lr-end_learning_rate) * \
+        (1 - cur_iter/max_iter)**power + end_learning_rate
 
     return lr
