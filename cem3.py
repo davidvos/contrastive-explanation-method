@@ -77,7 +77,7 @@ class ContrastiveExplanationMethod:
 
         orig = orig.view(28*28)
 
-        self.best_loss = float('Inf')
+        self.best_loss = float("inf")
         self.best_delta = None
 
         orig_output = self.classifier(orig.view(-1, 1, 28, 28))
@@ -207,7 +207,7 @@ class ContrastiveExplanationMethod:
                         self.best_loss = loss_to_optimise
                         self.best_delta = adv.detach().clone()
 
-                if not (step % 500):
+                if not (step % 1):
                     print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(search, step, const, loss_to_optimise, found_optimum))
 
             if found_optimum:
