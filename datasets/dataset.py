@@ -37,7 +37,9 @@ class Dataset:
             norm_img = (sample_image-torch.min(sample_image)) / \
                 (torch.max(sample_image) - torch.min(sample_image))
 
+            # Centers the mean around 0, as required by the CEM paper.
             sample_image = norm_img - 0.5
+
             return sample_image, sample_label
 
     def get_sample_by_class(self, train=True, class_label=1, show_image=True):
@@ -62,6 +64,7 @@ class Dataset:
                     visual_img = sample_image.numpy()[0]
                     plt.imshow(visual_img, cmap='gray')
                     plt.show()
+                # Centers the mean around 0, as required by the CEM paper.
                 image -= 0.5
                 return image
 
@@ -81,5 +84,6 @@ class Dataset:
             if binary:
                 images[images < 0.5] = 0
                 images[images >= 0.5] = 1
+            # Centers the mean around 0, as required by the CEM paper.
             images -= 0.5
             return images, labels
