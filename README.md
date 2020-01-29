@@ -6,7 +6,7 @@ The implementation on this github repository is given for two datasets: MNIST an
 
 ## Requirements
 
-See requirements.txt.
+See `requirements.txt`.
 
 ## Installation
 
@@ -14,7 +14,7 @@ Download the github repo and navigate to its root folder.
 
 ## Usage of the python package
 
-An example of the usage of the python implementation on the MNIST dataset is given below. 
+An example of the usage of the python implementation on the MNIST dataset is given below. For further usage examples see `usage-examples.ipynb`.
 
 ### Load required modules
 ```python
