@@ -18,7 +18,7 @@ class CNN(nn.Module):
             nn.ReLU(),
             nn.Conv2d(in_channels=32, out_channels=32, kernel_size=conv_kernel, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=pool_kernel, stride=1, padding=1)
+            nn.MaxPool2d(kernel_size=pool_kernel)
         ).to(device)
 
         self.conv2 = nn.Sequential(
@@ -26,7 +26,7 @@ class CNN(nn.Module):
             nn.ReLU(),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=conv_kernel, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=pool_kernel, stride=1, padding=1)
+            nn.MaxPool2d(kernel_size=pool_kernel)
         ).to(device)
 
         self.fc = nn.Sequential(
