@@ -32,10 +32,13 @@ def train_ae(
     """
     model.train()
 
-    if load_path and os.path.isfile(load_path):
-        model.load_state_dict(torch.load(load_path))
-        model.eval()
-        return
+    if load_path: 
+        if os.path.isfile(load_path):
+            model.load_state_dict(torch.load(load_path, map_location=device))
+            model.eval()
+            return
+        else:
+            raise ValueError("invalid load path specified for classifier.")
 
     # Initialize the device which to run the model on
     device = torch.device(device)
@@ -91,7 +94,7 @@ def train_cnn(
     save_fn="mnist-cnn",
     load_path="./models/saved_models/mnist-cnn.h5"
     ):
-        """
+    """
     Train CNN, or load from save file.
 
     model
@@ -109,12 +112,16 @@ def train_cnn(
     load_path
         Path to load model from, if this file exists and contains a model
     """
+
     model.train()
 
-    if load_path and os.path.isfile(load_path):
-        model.load_state_dict(torch.load(load_path))
-        model.eval()
-        return
+    if load_path:
+        if os.path.isfile(load_path):
+            model.load_state_dict(torch.load(load_path, map_location=device))
+            model.eval()
+            return
+        else:
+            raise ValueError("invalid load path specified for classifier.")
 
     # Initialize the device which to run the model on
     device = torch.device(device)
