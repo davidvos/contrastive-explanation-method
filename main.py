@@ -6,14 +6,14 @@ import os
 import torch
 import argparse
 
-from datasets.mnist import MNIST
-from datasets.fashion_mnist import FashionMNIST
+from cem.datasets.mnist import MNIST
+from cem.datasets.fashion_mnist import FashionMNIST
 
-from models.cae_model import CAE
-from models.conv_model import CNN
+from cem.models.cae_model import CAE
+from cem.models.conv_model import CNN
 
-from train import train_ae, train_cnn
-from cem import ContrastiveExplanationMethod
+from cem.train import train_ae, train_cnn
+from cem.cem import ContrastiveExplanationMethod
 
 # set random seeds for reproducability (although the CEM is fully determininstic)
 torch.manual_seed(0)
@@ -29,9 +29,11 @@ def main(args):
     train_cnn(classifier, dataset=None, load_path=args.cnn_load_path, device=args.device)
     
     if not args.no_cae:
-        print("initialising autoencoder...")
+        if args.verbose:
+            print("initialising autoencoder...")
         autoencoder = CAE(device=args.device)
-        print("loading autoencoder weights...")
+        if args.verbose:
+            print("loading autoencoder weights...")
         train_ae(autoencoder, dataset=None, load_path=args.cae_load_path, device=args.device)
 
     if args.verbose:
@@ -134,13 +136,13 @@ def main(args):
             plt.imsave(dirname + "/pn-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28) - sample.squeeze(), cmap="gray")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     # Specify model and dataset to evaluate on
     parser.add_argument("-dataset", help="choose a dataset (MNIST or FashionMNIST) to apply the contrastive explanation method to.", type=str, default="MNIST")
-    parser.add_argument("-cnn_load_path", help="path to load classifier weights from.", default="./models/saved_models/mnist-cnn.h5")
+    parser.add_argument("-cnn_load_path", help="path to load classifier weights from.", default="./cem/models/saved_models/mnist-cnn.h5")
     parser.add_argument("--no_cae", help="disable the autoencoder", action="store_true", default=False)
-    parser.add_argument("-cae_load_path", help="path to load autoencoder weights from.", default="./models/saved_models/mnist-cae.h5")
+    parser.add_argument("-cae_load_path", help="path to load autoencoder weights from.", default="./cem/models/saved_models/mnist-cae.h5")
     parser.add_argument("-sample_from_class", help="specify which class to sample from for pertinent negative or positive", default=3, type=int)
     parser.add_argument("--discard_images", help="specify whether or not to save the created images", action="store_true", default=False)
 
