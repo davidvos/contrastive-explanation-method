@@ -39,10 +39,6 @@ class CNN(nn.Module):
         ).to(device)
           
     def forward(self, x):
-        if torch.cuda.is_available() and self.device == 'cuda:0':
-            x.cuda()
-
-        x = x.unsqueeze(0) if len(x.shape) != 4 else x
 
         out = self.conv1(x)
         out = self.conv2(out)
@@ -52,10 +48,6 @@ class CNN(nn.Module):
         return out
 
     def forward_no_sm(self, x):
-        if torch.cuda.is_available() and self.device == 'cuda:0':
-            x.cuda()
-
-        x = x.unsqueeze(0) if len(x.shape) != 4 else x
 
         out = self.conv1(x)
         out = self.conv2(out)
