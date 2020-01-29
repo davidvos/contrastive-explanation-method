@@ -18,13 +18,13 @@ An example of the usage of the python implementation on the MNIST dataset is giv
 
 ### Load required modules
 ```python
-from datasets.mnist import MNIST
+from cem.datasets.mnist import MNIST
 
-from models.cae_model import CAE
-from models.conv_model import CNN
-from train import train_ae, train_cnn
+from cem.models.cae_model import CAE
+from cem.models.conv_model import CNN
+from cem.train import train_ae, train_cnn
 
-from cem import ContrastiveExplanationMethod
+from cem.cem import ContrastiveExplanationMethod
 ```
 ### Dataset and models 
 
