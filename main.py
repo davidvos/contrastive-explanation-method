@@ -37,9 +37,16 @@ def main(args):
     if args.verbose:
         print("loading dataset: {}".format(args.dataset))
     if args.dataset == "MNIST":
-        dataset = MNIST()
+        try:
+            dataset = MNIST()
+        except RuntimeError:
+            dataset = MNIST(download=True)
+
     elif args.dataset == "FashionMNIST":
-        dataset = FashionMNIST()
+        try:
+            dataset = FashionMNIST()
+        except RuntimeError:
+            dataset = FashionMNIST(download=True)
     else:
         raise ValueError("Incorrect dataset specified, please choose either MNIST or FashionMNIST.")
 
