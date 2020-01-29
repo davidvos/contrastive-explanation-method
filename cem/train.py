@@ -5,14 +5,14 @@ import os.path
 
 
 def train_ae(
-    model,
-    dataset,
-    iterations=10,
-    lr=0.001,
-    device='cpu',
-    save_fn="mnist-cae",
-    load_path="./models/saved_models/mnist-cae.h5"
-    ):
+        model,
+        dataset,
+        iterations=10,
+        lr=0.001,
+        device='cpu',
+        save_fn="mnist-cae",
+        load_path="./models/saved_models/mnist-cae.h5"
+        ):
     """
     Train autoencoder, or load from save file.
 
@@ -34,7 +34,7 @@ def train_ae(
     """
     model.train()
 
-    if load_path: 
+    if load_path:
         if os.path.isfile(load_path):
             model.load_state_dict(torch.load(load_path, map_location=device))
             model.eval()
@@ -85,20 +85,20 @@ def get_accuracy(predictions, targets):
         One hot target vectors
     """
     accuracy = (predictions.argmax(1).cpu().numpy() ==
-              targets.cpu().numpy()).sum()/(predictions.shape[0])
+                targets.cpu().numpy()).sum()/(predictions.shape[0])
     return accuracy
 
 
 def train_cnn(
-    model,
-    dataset,
-    iterations=10,
-    lr=0.001,
-    batch_size=64,
-    device='cpu',
-    save_fn="mnist-cnn",
-    load_path="./models/saved_models/mnist-cnn.h5"
-    ):
+        model,
+        dataset,
+        iterations=10,
+        lr=0.001,
+        batch_size=64,
+        device='cpu',
+        save_fn="mnist-cnn",
+        load_path="./models/saved_models/mnist-cnn.h5"
+        ):
     """
     Train CNN, or load from save file.
 
@@ -130,29 +130,30 @@ def train_cnn(
             raise ValueError("invalid load path specified for classifier.")
 
     # Initialize the device which to run the model on
-    device=torch.device(device)
+    device = torch.device(device)
 
     # specify loss function
-    criterion=nn.CrossEntropyLoss().to(device)
+    criterion = nn.CrossEntropyLoss().to(device)
 
     # Setup the loss and optimizer
-    optimizer=torch.optim.SGD(model.parameters(), lr=lr)
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
 
     for j in range(iterations):
-        for step, (batch_inputs, batch_targets) in enumerate(dataset.train_loader):
+        for step, (b_inputs, b_targets) in enumerate(dataset.train_loader):
 
-            output=model.forward(batch_inputs.to(device))
+            output = model.forward(b_inputs.to(device))
 
             optimizer.zero_grad()
 
-            loss=criterion(output, batch_targets.to(device))
+            loss = criterion(output, b_targets.to(device))
 
             loss.backward()
             optimizer.step()
 
             if step % 100 == 0:
                 print("loss after step {}:{} accuracy: {}".format(
-                    step, loss, get_accuracy(output, batch_targets)))
+                    step, loss, get_accuracy(output, b_targets)))
+
         print("done with iteration: {}/{}".format(j, iterations))
 
         if save_fn:

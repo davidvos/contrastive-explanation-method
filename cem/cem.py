@@ -15,7 +15,7 @@ class ContrastiveExplanationMethod:
     def __init__(
         self,
         classifier,
-        autoencoder = None,
+        autoencoder=None,
         kappa: float = 10.0,
         c_init: float = 10.0,
         c_converge: float = 0.1,
@@ -24,7 +24,7 @@ class ContrastiveExplanationMethod:
         iterations: int = 1000,
         n_searches: int = 9,
         learning_rate: float = 0.01,
-        verbal: bool = False,
+        verbose: bool = False,
         print_every: int = 100,
         input_shape: tuple = (1, 28, 28),
         device: str = "cpu"
@@ -40,17 +40,31 @@ class ContrastiveExplanationMethod:
             optional, autoencoder to be used for regularisation of the
             modifications to the explained samples.
         kappa
-            confidence parameter used in the loss functions (eq. 2) and (eq. 4) in
-            the original paper.
+            confidence parameter used in the loss functions (eq. 2)
+            and (eq. 4) in the original paper.
         const
             initial regularisation coefficient for the attack loss term.
         beta
-            regularisation coefficent for the L1 term of the optimisation objective.
-        gamma
-            regularisation coefficient for the autoencoder term of the optimisation
+            regularisation coefficent for the L1 term of the optimisation
             objective.
-        feature_range
-            range over which the features of the perturbed instances should be distributed.
+        gamma
+            regularisation coefficient for the autoencoder term of the
+            optimisation objective.
+        iterations
+            number of iterations in each search
+        n_searches
+            number of searches, also the number of times c gets adjusted
+        learning_rate
+            initial learning rate used to optimise the slack variable
+        verbose
+            print information during training
+        print_every
+            print frequency during training if verbose is true
+        input_shape
+            shape of single input sample, used to reshape for classifier
+            and ae input
+        device
+            which device to run the CEM on
         """
         classifier.eval()
         classifier.to(device)
@@ -69,7 +83,7 @@ class ContrastiveExplanationMethod:
         self.n_searches = n_searches
         self.learning_rate = learning_rate
 
-        self.verbal = verbal
+        self.verbose = verbose
         self.input_shape = input_shape
         self.device = device
         self.print_every = print_every
@@ -81,7 +95,8 @@ class ContrastiveExplanationMethod:
         orig
             The original input sample to find the pertinent for.
         mode
-            Either "PP" for pertinent positives or "PN" for pertinent negatives.
+            Either "PP" for pertinent positives or "PN" for pertinent
+            negatives.
 
         """
         if mode not in ["PN", "PP"]:
@@ -109,129 +124,175 @@ class ContrastiveExplanationMethod:
 
         for search in range(self.n_searches):
 
-            found_optimum = False
+            found_solution = False
 
-            adv = torch.zeros(orig.shape).to(self.device)
-            adv_s = torch.zeros(orig.shape).to(
+            adv_img = torch.zeros(orig.shape).to(self.device)
+            adv_img_slack = torch.zeros(orig.shape).to(
                 self.device).detach().requires_grad_(True)
 
-            # optimise for the slack variable y, with a square root decaying learning rate
-            optim = torch.optim.SGD([adv_s], lr=self.learning_rate)
+            # optimise for the slack variable y, with a square root decaying
+            # learning rate
+            optim = torch.optim.SGD([adv_img_slack], lr=self.learning_rate)
 
             for step in range(1, self.iterations + 1):
 
-                optim.zero_grad()
-                adv_s.requires_grad_(True)
+                # - Optimisation objective; (eq. 1) and (eq. 3) - #
 
-                ###############################################################
-                #### Loss term f(x,d) for PN (eq. 2) and for PP (eq. 4). ######
-                ###############################################################
+                # reset the computational graph
+                optim.zero_grad()
+                adv_img_slack.requires_grad_(True)
 
                 # Optimise for image + delta, this is more stable
-                delta = orig - adv
-                delta_s = orig - adv_s
+                delta = orig - adv_img
+                delta_slack = orig - adv_img_slack
 
                 if mode == "PP":
-                    img_to_enforce_label_score = self.classifier(
-                        delta.view(-1, *self.input_shape))
-                    img_to_enforce_label_score_s = self.classifier(
-                        delta_s.view(-1, *self.input_shape))
+                    perturbation_score = self.classifier(
+                        delta_slack.view(-1, *self.input_shape))
                 elif mode == "PN":
-                    img_to_enforce_label_score = self.classifier(
-                        adv.view(-1, *self.input_shape))
-                    img_to_enforce_label_score_s = self.classifier(
-                        adv_s.view(-1, *self.input_shape))
+                    perturbation_score = self.classifier(
+                        adv_img_slack.view(-1, *self.input_shape))
 
-                # L2 regularisation term
-                l2_dist_s = torch.sum(delta ** 2)
+                target_lab_score = torch.max(
+                    target_mask * perturbation_score)
+                nontarget_lab_score = torch.max(
+                    nontarget_mask * perturbation_score)
 
-                target_lab_score_s = torch.max(
-                    target_mask * img_to_enforce_label_score_s)
-                nontarget_lab_score_s = torch.max(
-                    nontarget_mask * img_to_enforce_label_score_s)
-
+                # classification objective loss (eq. 2)
                 if mode == "PP":
-                    loss_attack_s = const * torch.max(torch.tensor(0.).to(
-                        self.device), nontarget_lab_score_s - target_lab_score_s + self.kappa)
+                    loss_attack = const * torch.max(
+                        torch.tensor(0.).to(self.device),
+                        nontarget_lab_score - target_lab_score + self.kappa
+                        )
                 elif mode == "PN":
-                    loss_attack_s = const * torch.max(torch.tensor(0.).to(
-                        self.device), -nontarget_lab_score_s + target_lab_score_s + self.kappa)
+                    loss_attack = const * torch.max(
+                        torch.tensor(0.).to(self.device),
+                        -nontarget_lab_score + target_lab_score + self.kappa
+                        )
 
-                loss_ae_dist_s = 0
+                # if the attack loss has converged to 0, a viable solution
+                # has been found!
+                if loss_attack.item() == 0:
+                    found_solution = True
+
+                # L2 regularisation term (eq. 1)
+                l2_loss = torch.sum(delta ** 2)
+
+                # reconstruction loss (eq. 1). reshape the image to fit ae
+                # input, reshape the output of the autoencoder back. Since our
+                # images are zero-mean, scale back to original MNIST range
+                loss_ae = 0
                 if mode == "PP" and callable(self.autoencoder):
-                    loss_ae_dist_s = self.gamma * (torch.norm(self.autoencoder(
-                        delta_s.view(-1, *self.input_shape) + 0.5).view(*self.input_shape) - 0.5 - delta_s)**2)
+                    ae_out = self.autoencoder(
+                        delta_slack.view(-1, *self.input_shape) + 0.5
+                        )
+                    loss_ae = self.gamma * (torch.norm(
+                        ae_out.view(*self.input_shape) - 0.5 - delta_slack
+                        )**2)
                 elif mode == "PN" and callable(self.autoencoder):
-                    loss_ae_dist_s = self.gamma * (torch.norm(self.autoencoder(
-                        adv_s.view(-1, *self.input_shape) + 0.5).view(*self.input_shape) - 0.5 - adv_s)**2)
+                    ae_out = self.autoencoder(
+                        adv_img_slack.view(-1, *self.input_shape) + 0.5
+                        )
+                    loss_ae = self.gamma * (torch.norm(
+                        ae_out.view(*self.input_shape) - 0.5 - adv_img_slack
+                        )**2)
 
-                loss_to_optimise = loss_attack_s + l2_dist_s + loss_ae_dist_s
-
-                if loss_attack_s.item() == 0:
-                    found_optimum = True
+                # final optimisation objective
+                loss_to_optimise = loss_attack + l2_loss + loss_ae
 
                 # optimise for the slack variable, adjust lr
                 loss_to_optimise.backward()
                 optim.step()
 
-                optim.param_groups[0]['lr'] = (
-                    self.learning_rate - 0.0) * (1 - step/self.iterations) ** 0.5
+                optim.param_groups[0]['lr'] = (self.learning_rate - 0.0) *\
+                    (1 - step/self.iterations) ** 0.5
 
-                adv_s.requires_grad_(False)
+                adv_img_slack.requires_grad_(False)
+
+                # - FISTA and corresponding update steps (eq. 5, 6) - #
 
                 with torch.no_grad():
 
-                    # Shrinkage thresholding function
-                    zt = step / (step + 3)
+                    # Shrinkage thresholding function (eq. 7)
+                    cond1 = torch.gt(
+                        adv_img_slack - orig, self.beta
+                        ).type(torch.float)
+                    cond2 = torch.le(
+                        torch.abs(adv_img_slack - orig), self.beta
+                        ).type(torch.float)
+                    cond3 = torch.lt(
+                        adv_img_slack - orig, -self.beta
+                        ).type(torch.float)
 
-                    cond1 = torch.gt(adv_s - orig, self.beta)
-                    cond2 = torch.le(torch.abs(adv_s - orig), self.beta)
-                    cond3 = torch.lt(adv_s - orig, -self.beta)
-                    upper = torch.min(adv_s - self.beta,
+                    # Ensure all delta values are between -0.5 and 0.5
+                    upper = torch.min(adv_img_slack - self.beta,
                                       torch.tensor(0.5).to(self.device))
-                    lower = torch.max(adv_s + self.beta,
+                    lower = torch.max(adv_img_slack + self.beta,
                                       torch.tensor(-0.5).to(self.device))
 
-                    assign_adv = cond1.type(
-                        torch.float) * upper + cond2.type(torch.float) * orig + cond3.type(torch.float) * lower
+                    assign_adv_img = (
+                        cond1 * upper + cond2 * orig + cond3 * lower)
 
-                    # Apply projection and update steps
-                    cond4 = torch.gt(assign_adv - orig, 0).type(torch.float)
-                    cond5 = torch.le(assign_adv - orig, 0).type(torch.float)
+                    # Apply projection to the slack variable to obtain
+                    # the value for delta (eq. 5)
+                    cond4 = torch.gt(
+                        assign_adv_img - orig, 0).type(torch.float)
+                    cond5 = torch.le(
+                        assign_adv_img - orig, 0).type(torch.float)
                     if mode == "PP":
-                        assign_adv = cond5 * assign_adv + cond4 * orig
+                        assign_adv_img = cond5 * assign_adv_img + cond4 * orig
                     elif mode == "PN":
-                        assign_adv = cond4 * assign_adv + cond5 * orig
+                        assign_adv_img = cond4 * assign_adv_img + cond5 * orig
 
-                    assign_adv_s = assign_adv + zt * (assign_adv - adv)
-                    cond6 = torch.gt(assign_adv_s - orig, 0).type(torch.float)
-                    cond7 = torch.le(assign_adv_s - orig, 0).type(torch.float)
+                    # Apply momentum from previous delta and projection step
+                    # to obtain the value for the slack variable (eq. 6)
+                    mom = (step / (step + 3)) * (assign_adv_img - adv_img)
+                    assign_adv_img_slack = assign_adv_img + mom
+                    cond6 = torch.gt(
+                        assign_adv_img_slack - orig, 0).type(torch.float)
+                    cond7 = torch.le(
+                        assign_adv_img_slack - orig, 0).type(torch.float)
 
+                    # For PP only retain delta values that are smaller than
+                    # the corresponding feature values in the original image
                     if mode == "PP":
-                        assign_adv_s = cond7 * assign_adv_s + cond6 * orig
+                        assign_adv_img_slack = (
+                            cond7 * assign_adv_img_slack +
+                            cond6 * orig)
+                    # For PN only retain delta values that are larger than
+                    # the corresponding feature values in the original image
                     elif mode == "PN":
-                        assign_adv_s = cond6 * assign_adv_s + cond7 * orig
+                        assign_adv_img_slack = (
+                            cond6 * assign_adv_img_slack +
+                            cond7 * orig)
 
-                    adv.data.copy_(assign_adv)
-                    adv_s.data.copy_(assign_adv_s)
+                    adv_img.data.copy_(assign_adv_img)
+                    adv_img_slack.data.copy_(assign_adv_img_slack)
 
-                    # check if the found delta solves the classification problem,
-                    # retain it if it is the most regularised solution
-                    if loss_attack_s.item() == 0:
+                    # check if the found delta solves the classification
+                    # problem, retain if it is the most regularised solution
+                    if loss_attack.item() == 0:
                         if loss_to_optimise < best_loss:
 
                             best_loss = loss_to_optimise
-                            best_delta = adv.detach().clone()
+                            best_delta = adv_img.detach().clone()
 
-                            if self.verbal:
-                                print("new best delta found with loss: {}".format(
+                            if self.verbose:
+                                print("new best delta found, loss: {}".format(
                                     loss_to_optimise))
 
-                    if self.verbal and not (step % self.print_every):
-                        print("search: {} iteration: {} c: {:.2f} loss: {:.2f} found optimum: {}".format(
-                            search, step, const, loss_to_optimise, found_optimum))
+                    if self.verbose and not (step % self.print_every):
+                        print_vars = (search, step, const,
+                                      loss_to_optimise, found_solution)
+                        print((
+                            "search: {} iteration: {} c: {:.2f}" +
+                            " loss: {:.2f} solution: {}"
+                            ).format(*print_vars))
 
-            if found_optimum:
+            # If in this search a solution has been found we can decrease the
+            # weight of the attack loss to increase the regularisation, else
+            # increase c to decrease regularisation
+            if found_solution:
                 const = (self.c_converge + const) / 2
             else:
                 const *= 10
