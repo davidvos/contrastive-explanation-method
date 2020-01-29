@@ -89,7 +89,54 @@ python main.py --verbose -mode PP -dataset FashionMNIST \
 
 ### Command line arguments
 ```
-usage: main.py [-h] [-dataset DATASET] [-cnn_load_path CNN_LOAD_PATH]                                                                                      [--no_cae] [-cae_load_path CAE_LOAD_PATH]                                                                                                   [-sample_from_class SAMPLE_FROM_CLASS] [--discard_images]                                                                                   [-mode MODE] [-kappa KAPPA] [-beta BETA] [-gamma GAMMA]                                                                                     [-c_init C_INIT] [-c_converge C_CONVERGE]                                                                                                   [-iterations ITERATIONS] [-n_searches N_SEARCHES]                                                                                           [-learning_rate LEARNING_RATE] [-input_shape INPUT_SHAPE]                                                                                   [--verbose] [-print_every PRINT_EVERY] [-device DEVICE]                                                                                                                                                                                                                  optional arguments:                                                                                                                           -h, --help            show this help message and exit                                                                                       -dataset DATASET      choose a dataset (MNIST or FashionMNIST) to apply the                                                                                       contrastive explanation method to.                                                                                    -cnn_load_path CNN_LOAD_PATH                                                                                                                                      path to load classifier weights from.                                                                                 --no_cae              disable the autoencoder                                                                                               -cae_load_path CAE_LOAD_PATH                                                                                                                                      path to load autoencoder weights from.                                                                                -sample_from_class SAMPLE_FROM_CLASS                                                                                                                              specify which class to sample from for pertinent                                                                                            negative or positive                                                                                                  --discard_images      specify whether or not to save the created images                                                                     -mode MODE            Either PP for pertinent positive or PN for pertinent                                                                                        negative.                                                                                                             -kappa KAPPA          kappa value used in the CEM attack loss.                                                                              -beta BETA            beta value used as L1 regularisation coefficient.                                                                     -gamma GAMMA          gamma value used as reconstruction regularisation                                                                                           coefficient                                                                                                           -c_init C_INIT        initial c value used as regularisation coefficient for                                                                                      the attack loss                                                                                                       -c_converge C_CONVERGE                                                                                                                                            c value to amend the value of c towards if no solution                                                                                      has been found in the current iterations                                                                              -iterations ITERATIONS                                                                                                                                            number of iterations per search                                                                                       -n_searches N_SEARCHES                                                                                                                                            number of searches                                                                                                    -learning_rate LEARNING_RATE                                                                                                                                      initial learning rate used to optimise the slack                                                                                            variable                                                                                                              -input_shape INPUT_SHAPE                                                                                                                                          shape of a single sample, used to reshape input for                                                                                         classifier and autoencoder input                                                                                      --verbose             print loss information during training                                                                                -print_every PRINT_EVERY                                                                                                                                          if verbose mode is enabled, interval to print the                                                                                           current loss                                                                                                          -device DEVICE        device to run experiment on 
+usage: main.py [-h] [-dataset DATASET] [-cnn_load_path CNN_LOAD_PATH]
+               [--no_cae] [-cae_load_path CAE_LOAD_PATH]
+               [-sample_from_class SAMPLE_FROM_CLASS] [--discard_images]
+               [-mode MODE] [-kappa KAPPA] [-beta BETA] [-gamma GAMMA]
+               [-c_init C_INIT] [-c_converge C_CONVERGE]
+               [-iterations ITERATIONS] [-n_searches N_SEARCHES]
+               [-learning_rate LEARNING_RATE] [-input_shape INPUT_SHAPE]
+               [--verbose] [-print_every PRINT_EVERY] [-device DEVICE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -dataset DATASET      choose a dataset (MNIST or FashionMNIST) to apply the
+                        contrastive explanation method to.
+  -cnn_load_path CNN_LOAD_PATH
+                        path to load classifier weights from.
+  --no_cae              disable the autoencoder
+  -cae_load_path CAE_LOAD_PATH
+                        path to load autoencoder weights from.
+  -sample_from_class SAMPLE_FROM_CLASS
+                        specify which class to sample from for pertinent
+                        negative or positive
+  --discard_images      specify whether or not to save the created images
+  -mode MODE            Either PP for pertinent positive or PN for pertinent
+                        negative.
+  -kappa KAPPA          kappa value used in the CEM attack loss.
+  -beta BETA            beta value used as L1 regularisation coefficient.
+  -gamma GAMMA          gamma value used as reconstruction regularisation
+                        coefficient
+  -c_init C_INIT        initial c value used as regularisation coefficient for
+                        the attack loss
+  -c_converge C_CONVERGE
+                        c value to amend the value of c towards if no solution
+                        has been found in the current iterations
+  -iterations ITERATIONS
+                        number of iterations per search
+  -n_searches N_SEARCHES
+                        number of searches
+  -learning_rate LEARNING_RATE
+                        initial learning rate used to optimise the slack
+                        variable
+  -input_shape INPUT_SHAPE
+                        shape of a single sample, used to reshape input for
+                        classifier and autoencoder input
+  --verbose             print loss information during training
+  -print_every PRINT_EVERY
+                        if verbose mode is enabled, interval to print the
+                        current loss
+  -device DEVICE        device to run experiment on
 ```
 
 ## Extending to new datasets
