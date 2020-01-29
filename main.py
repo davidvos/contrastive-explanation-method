@@ -64,7 +64,8 @@ def main(args):
 
     if args.verbose:
         print("obtaining sample...")
-    sample, _ = dataset.get_sample()
+
+    sample = dataset.get_sample_by_class(class_label=args.sample_from_class)
 
     if args.verbose:
         print("starting search...")
@@ -113,6 +114,17 @@ def main(args):
 
     plt.show()
 
+    if not args.discard_images:
+        # save the created images
+        dirname = "saved_perturbations/{}-mode-{}-kappa-{}-gamma-{}".format(args.dataset, mode, kappa, gamma, beta, lr)
+        os.makedirs(dirname, exist_ok=True)
+    
+        plt.imsave(dirname + "/original-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), sample.squeeze())
+        if args.mode == "PP":
+            plt.imsave(dirname + "/pp-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), sample.squeeze() - delta.view(28, 28))
+        elif args.mode == "PN":
+            plt.imsave(dirname + "/perturbed-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28))
+            plt.imsave("saved_perturbations/perturbed-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28) - sample.squeeze())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -122,6 +134,8 @@ if __name__ == "__main__":
     parser.add_argument("-cnn_load_path", help="path to load classifier weights from.", default="./models/saved_models/mnist-cnn.h5")
     parser.add_argument("--no_cae", help="disable the autoencoder", action="store_true", default=False)
     parser.add_argument("-cae_load_path", help="path to load autoencoder weights from.", default="./models/saved_models/mnist-cae.h5")
+    parser.add_argument("-sample_from_class", help="specify which class to sample from for pertinent negative or positive", default=3, type=int)
+    parser.add_argument("--discard_images", help="specify whether or not to save the created images", action="store_true", default=False)
 
     # Specify CEM optional arguments
     parser.add_argument("-mode", help="Either PP for pertinent positive or PN for pertinent negative.", type=str, default="PN")
