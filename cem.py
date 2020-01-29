@@ -15,15 +15,18 @@ class ContrastiveExplanationMethod:
         self,
         classifier,
         autoencoder = None,
-        kappa: float = .6,
-        const: float = 0.1,
-        beta: float = .1,
+        kappa: float = 30.0,
+        c_init: float = 10.0,
+        c_converge: float = 0.1,
+        beta: float = 0.1,
         gamma: float = 100.,
-        feature_range: tuple = (-1e10, 1e10),
         iterations: int = 1000,
         n_searches: int = 9,
         learning_rate: float = 0.1,
-        batch: bool = False,
+        verbal: bool = False,
+        print_every: int = 100,
+        input_shape: tuple = (1, 28, 28),
+        device: str = "cpu"
     ):
         """
         Initialise the CEM model.
@@ -48,203 +51,168 @@ class ContrastiveExplanationMethod:
         feature_range
             range over which the features of the perturbed instances should be distributed.
         """
-        classifier.train()
-        autoencoder.train()
+        classifier.eval()
+        classifier.to(device)
+        if autoencoder:
+            autoencoder.eval()
+            autoencoder.to(device)
         self.classifier = classifier.forward_no_sm
         self.autoencoder = autoencoder
         self.kappa = kappa
-        self.c_init = const
-        self.c = const
+        self.c_converge = c_converge
+        self.c_init = c_init
         self.beta = beta
         self.gamma = gamma
-        self.feature_range = feature_range
+
         self.iterations = iterations
         self.n_searches = n_searches
         self.learning_rate = learning_rate
 
-        # if input is batch (as opposed to single sample), reduce dimensions along second axis, otherwise reduce along first axis
-        self.reduce_dim = int(batch)
+        self.verbal = verbal
+        self.input_shape = input_shape
+        self.device = device
+        self.print_every = print_every
 
-    def fista(self, orig_img, mode="PN"):
-        """Fast Iterative Shrinkage Thresholding Algorithm implementation in pytorch
-        
-        Paper: https://doi.org/10.1137/080716542
-        
-        (Eq. 5) and (eq. 6) in https://arxiv.org/abs/1802.07623
+    def explain(self, orig, mode="PN"):
         """
-        # initialise search values
-        self.mode = mode
+        Determine pertinents for a given input sample.
 
-        orig_img = orig_img.view(28*28)
-        perturb_init = torch.zeros(orig_img.shape)
+        orig
+            The original input sample to find the pertinent for.
+        mode
+            Either "PP" for pertinent positives or "PN" for pertinent negatives.
 
-        self.best_delta = None
-        self.best_loss = float("Inf")
-
-        self.all_best = []
-
-        self.c = 10
-
-        # See appendix A
-        for s in range(self.n_searches):
-
-            # to keep track of whether in the current search the perturbation loss reached 0
-            self.pert_loss_reached_optimum = False
-
-            delta = torch.zeros(orig_img.shape)
-            y = torch.zeros(orig_img.shape, requires_grad=True)
-
-            # optimise for the slack variable y, with a square root decaying learning rate
-            optim = torch.optim.SGD([y], lr=self.learning_rate)
-
-            for i in range(self.iterations):
-
-                # Reset the computational graph, otherwise we get a multiple backward passes error
-                optim.zero_grad()
-
-                y.requires_grad_(True)
-
-                # calculate loss as per (eq. 1, 3)
-                loss = self.loss_fn(orig_img, y).sum()
-                loss.backward()
-                
-                optim.step()
-                lr = poly_lr_scheduler(init_lr=self.learning_rate, cur_iter=i, end_learning_rate=0.0, lr_decay_iter=1, max_iter=self.iterations, power=0.5)
-                optim.param_groups[0]['lr'] = lr
-
-                y.requires_grad_(False)
-
-                # store previous delta
-                prev_delta = delta.clone().detach()
-
-                if self.pert_loss.item() == 0:
-                    if loss < self.best_loss:
-                        print("NEW BEST: {} - C: {}".format(loss.item(), self.c))
-                        self.best_delta = delta.clone().detach()
-                        self.all_best.append(delta.clone().detach())
-                        self.best_loss = loss.item()
-                        self.best_c = self.c
-                        self.best_pert_loss = self.pert_loss.clone().detach()
-
-                        #plt.imshow(self.best_delta.view(28,28))
-
-                if not (i % 20):
-                    print("search:{} iteration:{} lr:{:.2f} c value:{:.2f} loss: {:.2f} delta sum:{:.2f} optimum:{} y grad:{:.3f}".format(s, i, lr, self.c, loss.item(), delta.sum().item(), self.pert_loss_reached_optimum, y.grad.sum()))
-
-                # optimise for the sample + y since this is more stable
-                y.data.copy_(self.shrink(y - orig_img) + orig_img)
-
-                # perform the first projection step
-                if self.mode == "PN":
-                    delta.data.copy_(torch.where(y > orig_img, y, orig_img))
-                elif self.mode == "PP":
-                    delta.data.copy_(torch.where(y <= orig_img, y, orig_img))
-
-                delta_momentum = (delta + i/(i + 3)*(delta - prev_delta))
-
-                # perform second projection step
-                if self.mode == "PN":
-                    y.data.copy_(torch.where(delta_momentum > orig_img, delta_momentum, orig_img))
-                elif self.mode == "PP":
-                    y.data.copy_(torch.where(delta_momentum <= orig_img, delta_momentum, orig_img))
-
-            # adapt the perturbation loss coefficient
-            if self.pert_loss_reached_optimum:
-                self.c = (self.c + self.c_init) / 2
-            else:
-                self.c = self.c * 10
-
-    def shrink(self, z):
-        """Element-wise shrinkage thresholding function.
-        
-        (Eq. 7) in https://arxiv.org/abs/1802.07623
         """
-        zeros = torch.zeros(z.shape)
-        z_min = z - self.beta
-        z_plus = z + self.beta
-        
-        #print(z)
-        z_shrunk = z.clone()
-        z_shrunk = torch.where(torch.abs(z) <= self.beta, zeros, z_shrunk)
-        z_shrunk = torch.where(z > self.beta, z_min, z_shrunk)
-        z_shrunk = torch.where(z < -self.beta, z_plus, z_shrunk)
-        z_shrunk = torch.where(z_shrunk > 0.5, torch.tensor(0.5), z_shrunk)
-        z_shrunk = torch.where(z_shrunk < -0.5, torch.tensor(-0.5), z_shrunk)
-        #print(z_shrunk)
-        #ipdb.set_trace()
-        return z_shrunk
+        if mode not in ["PN", "PP"]:
+            raise ValueError("Invalid mode. Please select either 'PP' or 'PN' as mode.")
 
-    def loss_fn(self, orig_img, y):
-        """
-        Optimisation objective for PN (eq. 1) and for PP (eq. 3).
-        """
-        obj = (
-            self.c * self.perturbation_loss(orig_img, y) +
-            torch.norm(orig_img - y) ** 2
-        )
+        const = self.c_init
+        step = 0
 
-        #ipdb.set_trace()
+        orig = orig.view(*self.input_shape).to(self.device)
 
-        if callable(self.autoencoder):
-            if self.mode == "PN":
-                obj += self.gamma * torch.norm(y - self.autoencoder((y).view(-1, 1, 28, 28)).view(28*28)) ** 2 # TEMP FIX model trained on 0 to 1 range
-            elif self.mode == "PP":
-                obj += self.gamma * torch.norm(orig_img - y - self.autoencoder((orig_img - y).view(-1, 1, 28, 28)).view(28*28)) ** 2  # TEMP FIX
+        best_loss = float("inf")
+        best_delta = None
 
-        #ipdb.set_trace()
-        return obj
-
-    def perturbation_loss(self, orig_img, y):
-        """
-        Loss term f(x,d) for PN (eq. 2) and for PP (eq. 4).
-        
-        orig_img
-            the unpertrbed original sample, batch size first.
-        """
-        
-        orig_output = self.classifier(orig_img.view(-1, 1, 28, 28))
+        orig_output = self.classifier(orig.view(*self.input_shape))
 
         # mask for the originally selected label (t_0)
-        target_mask = torch.zeros(orig_output.shape)
+        target_mask = torch.zeros(orig_output.shape).to(self.device)
         target_mask[torch.arange(orig_output.shape[0]), torch.argmax(orig_output)] = 1
 
         # mask for the originally non-selected labels (i =/= t_0)
-        nontarget_mask = torch.ones(orig_output.shape) - target_mask
+        nontarget_mask = torch.ones(orig_output.shape).to(self.device) - target_mask
 
-        if self.mode == "PN":
-            pert_output = self.classifier((y).view(-1, 1, 28, 28))
-            perturbation_loss = torch.max(
-                torch.max(target_mask * pert_output) -
-                torch.max(nontarget_mask * pert_output) + self.kappa,
-                torch.tensor(0.)
-            )
-        elif self.mode == "PP":
-            pert_output = self.classifier((orig_img - y).view(-1, 1, 28, 28))
-            perturbation_loss = torch.max(
-                torch.max(nontarget_mask * pert_output) -
-                torch.max(target_mask * pert_output) + self.kappa,
-                torch.tensor(0.)
-            )
+        for search in range(self.n_searches):
 
+            found_optimum = False
 
-        ##ipdb.set_trace()
-        self.pert_loss = perturbation_loss
+            adv = torch.zeros(orig.shape).to(self.device)
+            adv_s = torch.zeros(orig.shape).to(self.device).detach().requires_grad_(True)
 
-        if perturbation_loss.item() == 0:
-            self.pert_loss_reached_optimum = True
+            # optimise for the slack variable y, with a square root decaying learning rate
+            optim = torch.optim.SGD([adv_s], lr=self.learning_rate)
 
-        return perturbation_loss
+            for step in range(1, self.iterations + 1):
 
-def poly_lr_scheduler(init_lr, cur_iter, lr_decay_iter=1,
-                      max_iter=100, end_learning_rate=0.0, power=0.9):
-    """Polynomial decay of learning rate
-        :param init_lr is base learning rate
-        :param iter is a current iteration
-        :param lr_decay_iter how frequently decay occurs, default is 1
-        :param max_iter is number of maximum iterations
-        :param power is a polymomial power
+                optim.zero_grad()
+                adv_s.requires_grad_(True)
+                
+                ###############################################################
+                #### Loss term f(x,d) for PN (eq. 2) and for PP (eq. 4). ######
+                ###############################################################
+                
+                # Optimise for image + delta, this is more stable
+                delta = orig - adv
+                delta_s = orig - adv_s
 
-    """
-    lr = (init_lr-end_learning_rate)*(1 - cur_iter/max_iter)**power + end_learning_rate
+                if mode == "PP":
+                    img_to_enforce_label_score = self.classifier(delta.view(-1, *self.input_shape))
+                    img_to_enforce_label_score_s = self.classifier(delta_s.view(-1, *self.input_shape))
+                elif mode == "PN":
+                    img_to_enforce_label_score = self.classifier(adv.view(-1, *self.input_shape))
+                    img_to_enforce_label_score_s = self.classifier(adv_s.view(-1, *self.input_shape))
 
-    return lr
+                # L2 regularisation term
+                l2_dist_s = torch.sum(delta ** 2)
+
+                target_lab_score_s = torch.max(target_mask * img_to_enforce_label_score_s)
+                nontarget_lab_score_s = torch.max(nontarget_mask * img_to_enforce_label_score_s)
+
+                if mode == "PP":
+                    loss_attack_s = const * torch.max(torch.tensor(0.).to(self.device), nontarget_lab_score_s - target_lab_score_s + self.kappa)
+                elif mode == "PN":
+                    loss_attack_s = const * torch.max(torch.tensor(0.).to(self.device), -nontarget_lab_score_s + target_lab_score_s + self.kappa)
+
+                loss_ae_dist_s = 0
+                if mode == "PP" and callable(self.autoencoder):
+                    loss_ae_dist_s = self.gamma * (torch.norm(self.autoencoder(delta_s.view(-1, *self.input_shape) + 0.5).view(*self.input_shape) - 0.5 - delta_s)**2)
+                elif mode == "PN" and callable(self.autoencoder):
+                    loss_ae_dist_s = self.gamma * (torch.norm(self.autoencoder(adv_s.view(-1, *self.input_shape) + 0.5).view(*self.input_shape) - 0.5 - adv_s)**2)
+
+                loss_to_optimise = loss_attack_s + l2_dist_s + loss_ae_dist_s
+
+                if loss_attack_s.item() == 0:
+                    found_optimum = True
+
+                # optimise for the slack variable, adjust lr
+                loss_to_optimise.backward()
+                optim.step()
+                
+                optim.param_groups[0]['lr'] = (self.learning_rate - 0.0) * (1 - step/self.iterations) ** 0.5
+
+                adv_s.requires_grad_(False)
+
+                with torch.no_grad():
+
+                    # Shrinkage thresholding function
+                    zt = step / (step + 3)
+
+                    cond1 = torch.gt(adv_s - orig, self.beta)
+                    cond2 = torch.le(torch.abs(adv_s - orig), self.beta)
+                    cond3 = torch.lt(adv_s- orig, -self.beta)
+                    upper = torch.min(adv_s - self.beta, torch.tensor(0.5).to(self.device))
+                    lower = torch.max(adv_s + self.beta, torch.tensor(-0.5).to(self.device))
+
+                    assign_adv = cond1.type(torch.float) * upper + cond2.type(torch.float) * orig + cond3.type(torch.float) * lower
+
+                    # Apply projection and update steps
+                    cond4 = torch.gt(assign_adv - orig, 0).type(torch.float)
+                    cond5 = torch.le(assign_adv - orig, 0).type(torch.float)
+                    if mode == "PP":
+                        assign_adv = cond5 * assign_adv + cond4 * orig
+                    elif mode == "PN":
+                        assign_adv = cond4 * assign_adv + cond5 * orig
+
+                    assign_adv_s = assign_adv + zt * (assign_adv - adv)
+                    cond6 = torch.gt(assign_adv_s - orig, 0).type(torch.float)
+                    cond7 = torch.le(assign_adv_s - orig, 0).type(torch.float)
+
+                    if mode == "PP":
+                        assign_adv_s = cond7 * assign_adv_s + cond6 * orig
+                    elif mode == "PN":
+                        assign_adv_s = cond6 * assign_adv_s + cond7 * orig
+
+                    adv.data.copy_(assign_adv)
+                    adv_s.data.copy_(assign_adv_s)
+
+                    # check if the found delta solves the classification problem,
+                    # retain it if it is the most regularised solution
+                    if loss_attack_s.item() == 0:
+                        if loss_to_optimise < best_loss:
+
+                            best_loss = loss_to_optimise
+                            best_delta = adv.detach().clone()
+
+                            if self.verbal:
+                                print("new best delta found with loss: {}".format(loss_to_optimise))
+
+                    if self.verbal and not (step % self.print_every):
+                        print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(search, step, const, loss_to_optimise, found_optimum))
+
+            if found_optimum:
+                const = (self.c_converge + const) / 2
+            else:
+                const *= 10
+
+        return best_delta
