@@ -12,7 +12,24 @@ def train_ae(
     save_fn="mnist-cae",
     load_path="./models/saved_models/mnist-cae.h5"
     ):
+    """
+    Train autoencoder, or load from save file.
 
+    model
+        The autoencoder model to train.
+    dataset
+        Dataset to train the autoencoder on.
+    iterations
+        Number of epochs to train the autoencoder for.
+    lr
+        Initial learning rate.
+    device
+        Device to train the autoencoder on "cuda" or "cpu".
+    save_fn
+        Save the trained model to this filename.
+    load_path
+        Path to load model from, if this file exists and contains a model
+    """
     model.train()
 
     if load_path and os.path.isfile(load_path):
@@ -53,6 +70,14 @@ def train_ae(
 
 
 def get_accuracy(predictions, targets):
+    """
+    Calculates the accuracy for a set of prediction and targets.
+
+    predictions
+        Softmax'ed output values of the network.
+    targets
+        One hot target vectors
+    """
     accuracy = (predictions.argmax(1).cpu().numpy() == targets.cpu().numpy()).sum()/(predictions.shape[0] )
     return accuracy
 
@@ -66,7 +91,24 @@ def train_cnn(
     save_fn="mnist-cnn",
     load_path="./models/saved_models/mnist-cnn.h5"
     ):
+        """
+    Train CNN, or load from save file.
 
+    model
+        The CNN model to train.
+    dataset
+        Dataset to train the CNN on.
+    iterations
+        Number of epochs to train the CNN for.
+    lr
+        Initial learning rate.
+    device
+        Device to train the CNN on "cuda" or "cpu".
+    save_fn
+        Save the trained model to this filename.
+    load_path
+        Path to load model from, if this file exists and contains a model
+    """
     model.train()
 
     if load_path and os.path.isfile(load_path):
