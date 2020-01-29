@@ -12,8 +12,25 @@ def train_ae(
     device='cpu',
     save_fn="mnist-cae",
     load_path="./models/saved_models/mnist-cae.h5"
-):
+    ):
+    """
+    Train autoencoder, or load from save file.
 
+    model
+        The autoencoder model to train.
+    dataset
+        Dataset to train the autoencoder on.
+    iterations
+        Number of epochs to train the autoencoder for.
+    lr
+        Initial learning rate.
+    device
+        Device to train the autoencoder on "cuda" or "cpu".
+    save_fn
+        Save the trained model to this filename.
+    load_path
+        Path to load model from, if this file exists and contains a model
+    """
     model.train()
 
     if load_path and os.path.isfile(load_path):
@@ -56,8 +73,16 @@ def train_ae(
 
 
 def get_accuracy(predictions, targets):
+    """
+    Calculates the accuracy for a set of prediction and targets.
+
+    predictions
+        Softmax'ed output values of the network.
+    targets
+        One hot target vectors
+    """
     accuracy = (predictions.argmax(1).cpu().numpy() ==
-                targets.cpu().numpy()).sum()/(predictions.shape[0])
+              targets.cpu().numpy()).sum()/(predictions.shape[0])
     return accuracy
 
 
@@ -70,33 +95,50 @@ def train_cnn(
     device='cpu',
     save_fn="mnist-cnn",
     load_path="./models/saved_models/mnist-cnn.h5"
-):
+    ):
+        """
+    Train CNN, or load from save file.
 
+    model
+        The CNN model to train.
+    dataset
+        Dataset to train the CNN on.
+    iterations
+        Number of epochs to train the CNN for.
+    lr
+        Initial learning rate.
+    device
+        Device to train the CNN on "cuda" or "cpu".
+    save_fn
+        Save the trained model to this filename.
+    load_path
+        Path to load model from, if this file exists and contains a model
+    """
     model.train()
 
     if load_path and os.path.isfile(load_path):
         model.load_state_dict(torch.load(
-            load_path, map_location=torch.device('cpu')))
+            load_path, map_location = torch.device('cpu')))
         model.eval()
         return
 
     # Initialize the device which to run the model on
-    device = torch.device(device)
+    device=torch.device(device)
 
     # specify loss function
-    criterion = nn.CrossEntropyLoss().to(device)
+    criterion=nn.CrossEntropyLoss().to(device)
 
     # Setup the loss and optimizer
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    optimizer=torch.optim.SGD(model.parameters(), lr=lr)
 
     for j in range(iterations):
         for step, (batch_inputs, batch_targets) in enumerate(dataset.train_loader):
 
-            output = model.forward(batch_inputs.to(device))
+            output=model.forward(batch_inputs.to(device))
 
             optimizer.zero_grad()
 
-            loss = criterion(output, batch_targets.to(device))
+            loss=criterion(output, batch_targets.to(device))
 
             loss.backward()
             optimizer.step()
