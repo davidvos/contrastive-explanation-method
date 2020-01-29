@@ -94,7 +94,7 @@ class ContrastiveExplanationMethod:
         best_loss = float("inf")
         best_delta = None
 
-        orig_output = self.classifier(orig.view(*self.input_shape))
+        orig_output = self.classifier(orig.view(-1, *self.input_shape))
 
         # mask for the originally selected label (t_0)
         target_mask = torch.zeros(orig_output.shape).to(self.device)
