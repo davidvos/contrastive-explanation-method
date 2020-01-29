@@ -42,7 +42,7 @@ class Dataset:
 
             return sample_image, sample_label
 
-    def get_sample_by_class(self, train=True, class_label=1, show_image=True):
+    def get_sample_by_class(self, train=True, class_label=1, show_image=False):
         """ Get a sample from the dataset with a certain class.
 
         train

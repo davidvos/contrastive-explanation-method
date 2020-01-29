@@ -37,9 +37,16 @@ def main(args):
     if args.verbose:
         print("loading dataset: {}".format(args.dataset))
     if args.dataset == "MNIST":
-        dataset = MNIST()
+        try:
+            dataset = MNIST()
+        except RuntimeError:
+            dataset = MNIST(download=True)
+
     elif args.dataset == "FashionMNIST":
-        dataset = FashionMNIST()
+        try:
+            dataset = FashionMNIST()
+        except RuntimeError:
+            dataset = FashionMNIST(download=True)
     else:
         raise ValueError("Incorrect dataset specified, please choose either MNIST or FashionMNIST.")
 
@@ -64,7 +71,8 @@ def main(args):
 
     if args.verbose:
         print("obtaining sample...")
-    sample, _ = dataset.get_sample()
+
+    sample = dataset.get_sample_by_class(class_label=args.sample_from_class)
 
     if args.verbose:
         print("starting search...")
@@ -88,7 +96,7 @@ def main(args):
         after = np.argmax(classifier(delta.view(-1,1,28,28)).detach().cpu()).item()
         print("image with pertinent negative added classified as: {}".format(after))
 
-    fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True, figsize=(20, 10))
+    fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True, figsize=(10, 5))
 
     ax1.imshow(sample.squeeze(), cmap="gray")
     ax1.title.set_text("original image")
@@ -106,13 +114,24 @@ def main(args):
         ax3.get_xaxis().set_visible(False)
         ax3.get_yaxis().set_visible(False)
     elif args.mode == "PN":
-        ax3.imshow(sample.squeeze() - delta.view(28,28), cmap="gray")
+        ax3.imshow(delta.view(28, 28) - sample.squeeze(), cmap="gray")
         ax3.title.set_text("pertinent negative")
         ax3.get_xaxis().set_visible(False)
         ax3.get_yaxis().set_visible(False)
 
     plt.show()
 
+    if not args.discard_images:
+        # save the created images
+        dirname = "saved_perturbations/{}-mode-{}-kappa-{}-gamma-{}".format(args.dataset, args.mode, args.kappa, args.gamma)
+        os.makedirs(dirname, exist_ok=True)
+    
+        plt.imsave(dirname + "/original-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), sample.squeeze(), cmap="gray")
+        if args.mode == "PP":
+            plt.imsave(dirname + "/pp-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), sample.squeeze() - delta.view(28, 28), cmap="gray")
+        elif args.mode == "PN":
+            plt.imsave(dirname + "/perturbed-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28), cmap="gray")
+            plt.imsave(dirname + "/pn-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28) - sample.squeeze(), cmap="gray")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -122,6 +141,8 @@ if __name__ == "__main__":
     parser.add_argument("-cnn_load_path", help="path to load classifier weights from.", default="./models/saved_models/mnist-cnn.h5")
     parser.add_argument("--no_cae", help="disable the autoencoder", action="store_true", default=False)
     parser.add_argument("-cae_load_path", help="path to load autoencoder weights from.", default="./models/saved_models/mnist-cae.h5")
+    parser.add_argument("-sample_from_class", help="specify which class to sample from for pertinent negative or positive", default=3, type=int)
+    parser.add_argument("--discard_images", help="specify whether or not to save the created images", action="store_true", default=False)
 
     # Specify CEM optional arguments
     parser.add_argument("-mode", help="Either PP for pertinent positive or PN for pertinent negative.", type=str, default="PN")

@@ -228,7 +228,7 @@ class ContrastiveExplanationMethod:
                                     loss_to_optimise))
 
                     if self.verbal and not (step % self.print_every):
-                        print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(
+                        print("search: {} iteration: {} c: {:.2f} loss: {:.2f} found optimum: {}".format(
                             search, step, const, loss_to_optimise, found_optimum))
 
             if found_optimum:
