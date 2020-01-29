@@ -107,7 +107,7 @@ def main(args):
         ax3.get_xaxis().set_visible(False)
         ax3.get_yaxis().set_visible(False)
     elif args.mode == "PN":
-        ax3.imshow(sample.squeeze() - delta.view(28,28), cmap="gray")
+        ax3.imshow(delta.view(28, 28) - sample.squeeze(), cmap="gray")
         ax3.title.set_text("pertinent negative")
         ax3.get_xaxis().set_visible(False)
         ax3.get_yaxis().set_visible(False)
@@ -119,12 +119,12 @@ def main(args):
         dirname = "saved_perturbations/{}-mode-{}-kappa-{}-gamma-{}".format(args.dataset, args.mode, args.kappa, args.gamma)
         os.makedirs(dirname, exist_ok=True)
     
-        plt.imsave(dirname + "/original-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), sample.squeeze())
+        plt.imsave(dirname + "/original-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), sample.squeeze(), cmap="gray")
         if args.mode == "PP":
-            plt.imsave(dirname + "/pp-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), sample.squeeze() - delta.view(28, 28))
+            plt.imsave(dirname + "/pp-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), sample.squeeze() - delta.view(28, 28), cmap="gray")
         elif args.mode == "PN":
-            plt.imsave(dirname + "/perturbed-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28))
-            plt.imsave("saved_perturbations/perturbed-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28) - sample.squeeze())
+            plt.imsave(dirname + "/perturbed-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28), cmap="gray")
+            plt.imsave(dirname + "/perturbed-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28) - sample.squeeze(), cmap="gray")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
