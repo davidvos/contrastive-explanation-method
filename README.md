@@ -101,42 +101,51 @@ usage: main.py [-h] [-dataset DATASET] [-cnn_load_path CNN_LOAD_PATH]
 optional arguments:
   -h, --help            show this help message and exit
   -dataset DATASET      choose a dataset (MNIST or FashionMNIST) to apply the
-                        contrastive explanation method to.
+                        contrastive explanation method to. (default: MNIST)
   -cnn_load_path CNN_LOAD_PATH
-                        path to load classifier weights from.
-  --no_cae              disable the autoencoder
+                        path to load classifier weights from. (default:
+                        ./models/saved_models/mnist-cnn.h5)
+  --no_cae              disable the autoencoder (default: False)
   -cae_load_path CAE_LOAD_PATH
-                        path to load autoencoder weights from.
+                        path to load autoencoder weights from. (default:
+                        ./models/saved_models/mnist-cae.h5)
   -sample_from_class SAMPLE_FROM_CLASS
                         specify which class to sample from for pertinent
-                        negative or positive
+                        negative or positive (default: 3)
   --discard_images      specify whether or not to save the created images
+                        (default: False)
   -mode MODE            Either PP for pertinent positive or PN for pertinent
-                        negative.
-  -kappa KAPPA          kappa value used in the CEM attack loss.
+                        negative. (default: PN)
+  -kappa KAPPA          kappa value used in the CEM attack loss. (default:
+                        10.0)
   -beta BETA            beta value used as L1 regularisation coefficient.
+                        (default: 0.1)
   -gamma GAMMA          gamma value used as reconstruction regularisation
-                        coefficient
+                        coefficient (default: 1.0)
   -c_init C_INIT        initial c value used as regularisation coefficient for
-                        the attack loss
+                        the attack loss (default: 10.0)
   -c_converge C_CONVERGE
                         c value to amend the value of c towards if no solution
-                        has been found in the current iterations
+                        has been found in the current iterations (default:
+                        0.1)
   -iterations ITERATIONS
-                        number of iterations per search
+                        number of iterations per search (default: 1000)
   -n_searches N_SEARCHES
-                        number of searches
+                        number of searches (default: 9)
   -learning_rate LEARNING_RATE
                         initial learning rate used to optimise the slack
-                        variable
+                        variable (default: 0.01)
   -input_shape INPUT_SHAPE
                         shape of a single sample, used to reshape input for
-                        classifier and autoencoder input
-  --verbose             print loss information during training
+                        classifier and autoencoder input (default: (1, 28,
+                        28))
+  --verbose             print loss information during training (default:
+                        False)
   -print_every PRINT_EVERY
                         if verbose mode is enabled, interval to print the
-                        current loss
-  -device DEVICE        device to run experiment on
+                        current loss (default: 100)
+  -device DEVICE        device to run experiment on (default: cpu)
+
 ```
 
 ## Extending to new datasets
