@@ -15,15 +15,15 @@ class ContrastiveExplanationMethod:
     def __init__(
         self,
         classifier,
-        autoencoder=None,
-        kappa: float = 30.0,
+        autoencoder = None,
+        kappa: float = 10.0,
         c_init: float = 10.0,
         c_converge: float = 0.1,
         beta: float = 0.1,
         gamma: float = 100.,
         iterations: int = 1000,
         n_searches: int = 9,
-        learning_rate: float = 0.1,
+        learning_rate: float = 0.01,
         verbal: bool = False,
         print_every: int = 100,
         input_shape: tuple = (1, 28, 28),
@@ -228,7 +228,7 @@ class ContrastiveExplanationMethod:
                                     loss_to_optimise))
 
                     if self.verbal and not (step % self.print_every):
-                        print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(
+                        print("search: {} iteration: {} c: {:.2f} loss: {:.2f} found optimum: {}".format(
                             search, step, const, loss_to_optimise, found_optimum))
 
             if found_optimum:
