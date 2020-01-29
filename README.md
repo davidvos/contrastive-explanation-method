@@ -6,7 +6,7 @@ The implementation on this github repository is given for two datasets: MNIST an
 
 ## Requirements
 
-See requirement.txt.
+See requirements.txt.
 
 ## Installation
 
