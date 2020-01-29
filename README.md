@@ -1,8 +1,8 @@
 # Re - Explanations based on the missing
 
-This repo contains a reproduction of the method defined in the paper ["Explanations based on the Missing"](https://arxiv.org/pdf/1802.07623).
+This repo contains a reproduction of the method defined in the paper ["Explanations based on the Missing"](https://arxiv.org/pdf/1802.07623). It extends code created by the original authors, which can be found [here](https://github.com/IBM/Contrastive-Explanation-Method).
 
-The implementation on this github repository is given for two datasets: MNIST and FashionMNIST, but allows for easy extensions to new datasets (see below). 
+The implementation on this github repository is given for two datasets: MNIST and FashionMNIST, but allows for easy extensions to new datasets (see below).
 
 ## Requirements
 
