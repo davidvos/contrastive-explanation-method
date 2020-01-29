@@ -3,6 +3,7 @@ import torch.nn as nn
 
 import os.path
 
+
 def train_ae(
     model,
     dataset,
@@ -66,8 +67,9 @@ def train_ae(
         print("loss after epoch {}:{}".format(j, loss))
 
         if save_fn:
-            torch.save(model.state_dict(), './models/saved_models/' + save_fn + ".h5")
-    
+            torch.save(model.state_dict(),
+                       './models/saved_models/' + save_fn + ".h5")
+
     print('Done training.')
     return
 
@@ -81,8 +83,10 @@ def get_accuracy(predictions, targets):
     targets
         One hot target vectors
     """
-    accuracy = (predictions.argmax(1).cpu().numpy() == targets.cpu().numpy()).sum()/(predictions.shape[0] )
+    accuracy = (predictions.argmax(1).cpu().numpy() ==
+              targets.cpu().numpy()).sum()/(predictions.shape[0])
     return accuracy
+
 
 def train_cnn(
     model,
@@ -124,32 +128,34 @@ def train_cnn(
             raise ValueError("invalid load path specified for classifier.")
 
     # Initialize the device which to run the model on
-    device = torch.device(device)
+    device=torch.device(device)
 
     # specify loss function
-    criterion = nn.CrossEntropyLoss().to(device)
+    criterion=nn.CrossEntropyLoss().to(device)
 
     # Setup the loss and optimizer
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    optimizer=torch.optim.SGD(model.parameters(), lr=lr)
 
     for j in range(iterations):
         for step, (batch_inputs, batch_targets) in enumerate(dataset.train_loader):
-                        
-            output = model.forward(batch_inputs.to(device))
+
+            output=model.forward(batch_inputs.to(device))
 
             optimizer.zero_grad()
 
-            loss = criterion(output, batch_targets.to(device)) 
+            loss=criterion(output, batch_targets.to(device))
 
             loss.backward()
             optimizer.step()
 
             if step % 100 == 0:
-                print("loss after step {}:{} accuracy: {}".format(step, loss, get_accuracy(output, batch_targets)))
+                print("loss after step {}:{} accuracy: {}".format(
+                    step, loss, get_accuracy(output, batch_targets)))
         print("done with iteration: {}/{}".format(j, iterations))
 
         if save_fn:
-            torch.save(model.state_dict(), './models/saved_models/' + save_fn + ".h5")
+            torch.save(model.state_dict(),
+                       './models/saved_models/' + save_fn + ".h5")
 
     print('Done training.')
     return
