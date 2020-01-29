@@ -24,6 +24,7 @@ class ContrastiveExplanationMethod:
         n_searches: int = 9,
         learning_rate: float = 0.1,
         verbal: bool = False,
+        print_every: int = 100,
         input_shape: tuple = (1, 28, 28),
         device: str = "cpu"
     ):
@@ -59,7 +60,7 @@ class ContrastiveExplanationMethod:
         self.autoencoder = autoencoder
         self.kappa = kappa
         self.c_converge = c_converge
-        self.c = c_init
+        self.c_init = c_init
         self.beta = beta
         self.gamma = gamma
 
@@ -70,16 +71,22 @@ class ContrastiveExplanationMethod:
         self.verbal = verbal
         self.input_shape = input_shape
         self.device = device
+        self.print_every = print_every
 
     def explain(self, orig, mode="PN"):
         """
-        
+        Determine pertinents for a given input sample.
+
+        orig
+            The original input sample to find the pertinent for.
+        mode
+            Either "PP" for pertinent positives or "PN" for pertinent negatives.
 
         """
         if mode not in ["PN", "PP"]:
             raise ValueError("Invalid mode. Please select either 'PP' or 'PN' as mode.")
 
-        const = self.c
+        const = self.c_init
         step = 0
 
         orig = orig.view(*self.input_shape).to(self.device)
@@ -110,7 +117,11 @@ class ContrastiveExplanationMethod:
 
                 optim.zero_grad()
                 adv_s.requires_grad_(True)
-
+                
+                ###############################################################
+                #### Loss term f(x,d) for PN (eq. 2) and for PP (eq. 4). ######
+                ###############################################################
+                
                 # Optimise for image + delta, this is more stable
                 delta = orig - adv
                 delta_s = orig - adv_s
@@ -152,49 +163,52 @@ class ContrastiveExplanationMethod:
 
                 adv_s.requires_grad_(False)
 
-                # fast iterative shrinkage thresholding function
-                zt = step / (step + 3)
+                with torch.no_grad():
 
-                cond1 = torch.gt(adv_s - orig, self.beta)
-                cond2 = torch.le(torch.abs(adv_s - orig), self.beta)
-                cond3 = torch.lt(adv_s- orig, -self.beta)
-                upper = torch.min(adv_s - self.beta, torch.tensor(0.5).to(self.device))
-                lower = torch.max(adv_s + self.beta, torch.tensor(-0.5).to(self.device))
+                    # Shrinkage thresholding function
+                    zt = step / (step + 3)
 
-                assign_adv = cond1.type(torch.float) * upper + cond2.type(torch.float) * orig + cond3.type(torch.float) * lower
+                    cond1 = torch.gt(adv_s - orig, self.beta)
+                    cond2 = torch.le(torch.abs(adv_s - orig), self.beta)
+                    cond3 = torch.lt(adv_s- orig, -self.beta)
+                    upper = torch.min(adv_s - self.beta, torch.tensor(0.5).to(self.device))
+                    lower = torch.max(adv_s + self.beta, torch.tensor(-0.5).to(self.device))
 
-                cond4 = torch.gt(assign_adv - orig, 0).type(torch.float)
-                cond5 = torch.le(assign_adv - orig, 0).type(torch.float)
-                if mode == "PP":
-                    assign_adv = cond5 * assign_adv + cond4 * orig
-                elif mode == "PN":
-                    assign_adv = cond4 * assign_adv + cond5 * orig
+                    assign_adv = cond1.type(torch.float) * upper + cond2.type(torch.float) * orig + cond3.type(torch.float) * lower
 
-                assign_adv_s = assign_adv + zt * (assign_adv - adv)
-                cond6 = torch.gt(assign_adv_s - orig, 0).type(torch.float)
-                cond7 = torch.le(assign_adv_s - orig, 0).type(torch.float)
+                    # Apply projection and update steps
+                    cond4 = torch.gt(assign_adv - orig, 0).type(torch.float)
+                    cond5 = torch.le(assign_adv - orig, 0).type(torch.float)
+                    if mode == "PP":
+                        assign_adv = cond5 * assign_adv + cond4 * orig
+                    elif mode == "PN":
+                        assign_adv = cond4 * assign_adv + cond5 * orig
 
-                if mode == "PP":
-                    assign_adv_s = cond7 * assign_adv_s + cond6 * orig
-                elif mode == "PN":
-                    assign_adv_s = cond6 * assign_adv_s + cond7 * orig
+                    assign_adv_s = assign_adv + zt * (assign_adv - adv)
+                    cond6 = torch.gt(assign_adv_s - orig, 0).type(torch.float)
+                    cond7 = torch.le(assign_adv_s - orig, 0).type(torch.float)
 
-                adv.data.copy_(assign_adv)
-                adv_s.data.copy_(assign_adv_s)
+                    if mode == "PP":
+                        assign_adv_s = cond7 * assign_adv_s + cond6 * orig
+                    elif mode == "PN":
+                        assign_adv_s = cond6 * assign_adv_s + cond7 * orig
 
-                # check if the found delta solves the classification problem,
-                # retain it if it is the most regularised solution
-                if loss_attack_s.item() == 0:
-                    if loss_to_optimise < best_loss:
+                    adv.data.copy_(assign_adv)
+                    adv_s.data.copy_(assign_adv_s)
 
-                        best_loss = loss_to_optimise
-                        best_delta = adv.detach().clone()
+                    # check if the found delta solves the classification problem,
+                    # retain it if it is the most regularised solution
+                    if loss_attack_s.item() == 0:
+                        if loss_to_optimise < best_loss:
 
-                        if self.verbal:
-                            print("new best: {}".format(loss_to_optimise))
+                            best_loss = loss_to_optimise
+                            best_delta = adv.detach().clone()
 
-                if self.verbal:
-                    print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(search, step, const, loss_to_optimise, found_optimum))
+                            if self.verbal:
+                                print("new best delta found with loss: {}".format(loss_to_optimise))
+
+                    if self.verbal and not (step % self.print_every):
+                        print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(search, step, const, loss_to_optimise, found_optimum))
 
             if found_optimum:
                 const = (self.c_converge + const) / 2

@@ -31,7 +31,7 @@ class CNN(nn.Module):
 
         self.fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(in_features=57600, out_features=200, bias=True),
+            nn.Linear(in_features=3136, out_features=200, bias=True),
             nn.ReLU(),
             nn.Linear(in_features=200, out_features=200, bias=True),
             nn.ReLU(),
