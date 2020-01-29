@@ -124,7 +124,7 @@ def main(args):
             plt.imsave(dirname + "/pp-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), sample.squeeze() - delta.view(28, 28), cmap="gray")
         elif args.mode == "PN":
             plt.imsave(dirname + "/perturbed-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28), cmap="gray")
-            plt.imsave(dirname + "/perturbed-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28) - sample.squeeze(), cmap="gray")
+            plt.imsave(dirname + "/pn-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), delta.view(28, 28) - sample.squeeze(), cmap="gray")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
