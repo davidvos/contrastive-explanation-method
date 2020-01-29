@@ -9,12 +9,13 @@ import sys
 import ipdb
 import matplotlib.pyplot as plt
 
+
 class ContrastiveExplanationMethod:
-    
+
     def __init__(
         self,
         classifier,
-        autoencoder = None,
+        autoencoder=None,
         kappa: float = 30.0,
         c_init: float = 10.0,
         c_converge: float = 0.1,
@@ -30,7 +31,7 @@ class ContrastiveExplanationMethod:
     ):
         """
         Initialise the CEM model.
-        
+
         classifier
             classification model to be explained.
         mode
@@ -84,7 +85,8 @@ class ContrastiveExplanationMethod:
 
         """
         if mode not in ["PN", "PP"]:
-            raise ValueError("Invalid mode. Please select either 'PP' or 'PN' as mode.")
+            raise ValueError(
+                "Invalid mode. Please select either 'PP' or 'PN' as mode.")
 
         const = self.c_init
         step = 0
@@ -98,17 +100,20 @@ class ContrastiveExplanationMethod:
 
         # mask for the originally selected label (t_0)
         target_mask = torch.zeros(orig_output.shape).to(self.device)
-        target_mask[torch.arange(orig_output.shape[0]), torch.argmax(orig_output)] = 1
+        target_mask[torch.arange(orig_output.shape[0]),
+                    torch.argmax(orig_output)] = 1
 
         # mask for the originally non-selected labels (i =/= t_0)
-        nontarget_mask = torch.ones(orig_output.shape).to(self.device) - target_mask
+        nontarget_mask = torch.ones(orig_output.shape).to(
+            self.device) - target_mask
 
         for search in range(self.n_searches):
 
             found_optimum = False
 
             adv = torch.zeros(orig.shape).to(self.device)
-            adv_s = torch.zeros(orig.shape).to(self.device).detach().requires_grad_(True)
+            adv_s = torch.zeros(orig.shape).to(
+                self.device).detach().requires_grad_(True)
 
             # optimise for the slack variable y, with a square root decaying learning rate
             optim = torch.optim.SGD([adv_s], lr=self.learning_rate)
@@ -117,38 +122,48 @@ class ContrastiveExplanationMethod:
 
                 optim.zero_grad()
                 adv_s.requires_grad_(True)
-                
+
                 ###############################################################
                 #### Loss term f(x,d) for PN (eq. 2) and for PP (eq. 4). ######
                 ###############################################################
-                
+
                 # Optimise for image + delta, this is more stable
                 delta = orig - adv
                 delta_s = orig - adv_s
 
                 if mode == "PP":
-                    img_to_enforce_label_score = self.classifier(delta.view(-1, *self.input_shape))
-                    img_to_enforce_label_score_s = self.classifier(delta_s.view(-1, *self.input_shape))
+                    img_to_enforce_label_score = self.classifier(
+                        delta.view(-1, *self.input_shape))
+                    img_to_enforce_label_score_s = self.classifier(
+                        delta_s.view(-1, *self.input_shape))
                 elif mode == "PN":
-                    img_to_enforce_label_score = self.classifier(adv.view(-1, *self.input_shape))
-                    img_to_enforce_label_score_s = self.classifier(adv_s.view(-1, *self.input_shape))
+                    img_to_enforce_label_score = self.classifier(
+                        adv.view(-1, *self.input_shape))
+                    img_to_enforce_label_score_s = self.classifier(
+                        adv_s.view(-1, *self.input_shape))
 
                 # L2 regularisation term
                 l2_dist_s = torch.sum(delta ** 2)
 
-                target_lab_score_s = torch.max(target_mask * img_to_enforce_label_score_s)
-                nontarget_lab_score_s = torch.max(nontarget_mask * img_to_enforce_label_score_s)
+                target_lab_score_s = torch.max(
+                    target_mask * img_to_enforce_label_score_s)
+                nontarget_lab_score_s = torch.max(
+                    nontarget_mask * img_to_enforce_label_score_s)
 
                 if mode == "PP":
-                    loss_attack_s = const * torch.max(torch.tensor(0.).to(self.device), nontarget_lab_score_s - target_lab_score_s + self.kappa)
+                    loss_attack_s = const * torch.max(torch.tensor(0.).to(
+                        self.device), nontarget_lab_score_s - target_lab_score_s + self.kappa)
                 elif mode == "PN":
-                    loss_attack_s = const * torch.max(torch.tensor(0.).to(self.device), -nontarget_lab_score_s + target_lab_score_s + self.kappa)
+                    loss_attack_s = const * torch.max(torch.tensor(0.).to(
+                        self.device), -nontarget_lab_score_s + target_lab_score_s + self.kappa)
 
                 loss_ae_dist_s = 0
                 if mode == "PP" and callable(self.autoencoder):
-                    loss_ae_dist_s = self.gamma * (torch.norm(self.autoencoder(delta_s.view(-1, *self.input_shape) + 0.5).view(*self.input_shape) - 0.5 - delta_s)**2)
+                    loss_ae_dist_s = self.gamma * (torch.norm(self.autoencoder(
+                        delta_s.view(-1, *self.input_shape) + 0.5).view(*self.input_shape) - 0.5 - delta_s)**2)
                 elif mode == "PN" and callable(self.autoencoder):
-                    loss_ae_dist_s = self.gamma * (torch.norm(self.autoencoder(adv_s.view(-1, *self.input_shape) + 0.5).view(*self.input_shape) - 0.5 - adv_s)**2)
+                    loss_ae_dist_s = self.gamma * (torch.norm(self.autoencoder(
+                        adv_s.view(-1, *self.input_shape) + 0.5).view(*self.input_shape) - 0.5 - adv_s)**2)
 
                 loss_to_optimise = loss_attack_s + l2_dist_s + loss_ae_dist_s
 
@@ -158,8 +173,9 @@ class ContrastiveExplanationMethod:
                 # optimise for the slack variable, adjust lr
                 loss_to_optimise.backward()
                 optim.step()
-                
-                optim.param_groups[0]['lr'] = (self.learning_rate - 0.0) * (1 - step/self.iterations) ** 0.5
+
+                optim.param_groups[0]['lr'] = (
+                    self.learning_rate - 0.0) * (1 - step/self.iterations) ** 0.5
 
                 adv_s.requires_grad_(False)
 
@@ -170,11 +186,14 @@ class ContrastiveExplanationMethod:
 
                     cond1 = torch.gt(adv_s - orig, self.beta)
                     cond2 = torch.le(torch.abs(adv_s - orig), self.beta)
-                    cond3 = torch.lt(adv_s- orig, -self.beta)
-                    upper = torch.min(adv_s - self.beta, torch.tensor(0.5).to(self.device))
-                    lower = torch.max(adv_s + self.beta, torch.tensor(-0.5).to(self.device))
+                    cond3 = torch.lt(adv_s - orig, -self.beta)
+                    upper = torch.min(adv_s - self.beta,
+                                      torch.tensor(0.5).to(self.device))
+                    lower = torch.max(adv_s + self.beta,
+                                      torch.tensor(-0.5).to(self.device))
 
-                    assign_adv = cond1.type(torch.float) * upper + cond2.type(torch.float) * orig + cond3.type(torch.float) * lower
+                    assign_adv = cond1.type(
+                        torch.float) * upper + cond2.type(torch.float) * orig + cond3.type(torch.float) * lower
 
                     # Apply projection and update steps
                     cond4 = torch.gt(assign_adv - orig, 0).type(torch.float)
@@ -205,10 +224,12 @@ class ContrastiveExplanationMethod:
                             best_delta = adv.detach().clone()
 
                             if self.verbal:
-                                print("new best delta found with loss: {}".format(loss_to_optimise))
+                                print("new best delta found with loss: {}".format(
+                                    loss_to_optimise))
 
                     if self.verbal and not (step % self.print_every):
-                        print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(search, step, const, loss_to_optimise, found_optimum))
+                        print("search: {} iteration: {} c: {} loss: {:.2f} found optimum: {}".format(
+                            search, step, const, loss_to_optimise, found_optimum))
 
             if found_optimum:
                 const = (self.c_converge + const) / 2
