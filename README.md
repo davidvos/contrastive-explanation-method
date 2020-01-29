@@ -1,12 +1,12 @@
 # Re - Explanations based on the missing
 
-This repo contains a reproduction of the method defined in the paper ["Explanations based on the Missing"](https://arxiv.org/pdf/1802.07623).
+This repo contains a reproduction of the method defined in the paper ["Explanations based on the Missing"](https://arxiv.org/pdf/1802.07623). It extends code created by the original authors, which can be found [here](https://github.com/IBM/Contrastive-Explanation-Method).
 
-The implementation on this github repository is given for two datasets: MNIST and FashionMNIST, but allows for easy extensions to new datasets (see below). 
+The implementation on this github repository is given for two datasets: MNIST and FashionMNIST, but allows for easy extensions to new datasets (see below).
 
 ## Requirements
 
-See requirements.txt.
+See `requirements.txt`.
 
 ## Installation
 
@@ -14,17 +14,17 @@ Download the github repo and navigate to its root folder.
 
 ## Usage of the python package
 
-An example of the usage of the python implementation on the MNIST dataset is given below. 
+An example of the usage of the python implementation on the MNIST dataset is given below. For further usage examples see `usage-examples.ipynb`.
 
 ### Load required modules
 ```python
-from datasets.mnist import MNIST
+from cem.datasets.mnist import MNIST
 
-from models.cae_model import CAE
-from models.conv_model import CNN
-from train import train_ae, train_cnn
+from cem.models.cae_model import CAE
+from cem.models.conv_model import CNN
+from cem.train import train_ae, train_cnn
 
-from cem import ContrastiveExplanationMethod
+from cem.cem import ContrastiveExplanationMethod
 ```
 ### Dataset and models 
 
