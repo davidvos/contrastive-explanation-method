@@ -89,7 +89,7 @@ def main(args):
         after = np.argmax(classifier(delta.view(-1,1,28,28)).detach().cpu()).item()
         print("image with pertinent negative added classified as: {}".format(after))
 
-    fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True, figsize=(20, 10))
+    fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True, figsize=(10, 5))
 
     ax1.imshow(sample.squeeze(), cmap="gray")
     ax1.title.set_text("original image")
@@ -116,7 +116,7 @@ def main(args):
 
     if not args.discard_images:
         # save the created images
-        dirname = "saved_perturbations/{}-mode-{}-kappa-{}-gamma-{}".format(args.dataset, mode, kappa, gamma, beta, lr)
+        dirname = "saved_perturbations/{}-mode-{}-kappa-{}-gamma-{}".format(args.dataset, args.mode, args.kappa, args.gamma)
         os.makedirs(dirname, exist_ok=True)
     
         plt.imsave(dirname + "/original-class-{}-before-{}-after-{}.png".format(args.sample_from_class, before, after), sample.squeeze())
