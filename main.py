@@ -4,7 +4,6 @@ the reproduction of the paper "explanations based on the missing".
 import matplotlib.pyplot as plt
 import numpy as np
 
-import time
 import os
 import torch
 import argparse

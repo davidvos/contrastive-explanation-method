@@ -2,12 +2,7 @@
 
 Paper:  https://arxiv.org/abs/1802.07623
 """
-
-import numpy as np
 import torch
-import sys
-import ipdb
-import matplotlib.pyplot as plt
 
 
 class ContrastiveExplanationMethod:

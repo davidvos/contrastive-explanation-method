@@ -4,7 +4,6 @@
 
 import torch
 import matplotlib.pyplot as plt
-from torchvision import transforms
 
 
 class Dataset:

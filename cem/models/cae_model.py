@@ -2,7 +2,6 @@
 reconstruction regulariser for the CEM.
 
 """
-import torch
 import torch.nn as nn
 
 

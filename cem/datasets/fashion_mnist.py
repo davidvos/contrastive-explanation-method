@@ -3,9 +3,7 @@ the FashionMNIST dataset.
 
 """
 
-import numpy as np
 import torch
-import torchvision
 import torchvision.datasets as datasets
 from torchvision import transforms
 
