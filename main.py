@@ -65,7 +65,7 @@ def main(args):
         raise ValueError(
             "Incorrect dataset specified, please choose either MNIST or " +
             "FashionMNIST."
-            )
+        )
 
     if args.verbose:
         print("initialising ContrastiveExplanationMethod...")
@@ -110,12 +110,12 @@ def main(args):
     if args.mode == "PP":
         after = np.argmax(
             classifier(sample - delta.view(1, 28, 28)).detach().cpu()
-            ).item()
+        ).item()
         print("pertinent positive classified as: {}".format(after))
     elif args.mode == "PN":
         after = np.argmax(
             classifier(delta.view(-1, 1, 28, 28)).detach().cpu()
-            ).item()
+        ).item()
         print("image with pertinent negative added classified as: {}".format(
             after))
 

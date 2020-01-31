@@ -45,10 +45,10 @@ alibi-mnist/cem_mnist.ipynb
 ehthumbs.db
 Thumbs.db
 
-data/mnist/MNIST/raw/train-labels-idx1-ubyte
-data/mnist/MNIST/raw/t10k-images-idx3-ubyte
-data/mnist/MNIST/raw/t10k-labels-idx1-ubyte
-data/mnist/MNIST/raw/train-images-idx3-ubyte
+cem/datasets/data/mnist/MNIST/raw/train-labels-idx1-ubyte
+cem/datasets/data/mnist/MNIST/raw/t10k-images-idx3-ubyte
+cem/datasets/data/mnist/MNIST/raw/t10k-labels-idx1-ubyte
+cem/datasets/data/mnist/MNIST/raw/train-images-idx3-ubyte
 cem/datasets/data/fashion_mnist/FashionMNIST/raw/t10k-images-idx3-ubyte
 cem/datasets/data/fashion_mnist/FashionMNIST/raw/t10k-labels-idx1-ubyte
 cem/datasets/data/fashion_mnist/FashionMNIST/raw/train-images-idx3-ubyte

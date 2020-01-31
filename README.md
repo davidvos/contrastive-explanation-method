@@ -83,8 +83,8 @@ An example of the usage of this script for the FashionMNIST dataset is given bel
 
 ```bash
 python main.py --verbose -mode PP -dataset FashionMNIST \
-  -cnn_load_path ./models/saved_models/fashion-mnist-cnn.h5\
-  -cae_load_path ./models/saved_models/fashion-mnist-cae.h5
+  -cnn_load_path ./cem/models/saved_models/fashion-mnist-cnn.h5\
+  -cae_load_path ./cem/models/saved_models/fashion-mnist-cae.h5
 ```
 
 ### Command line arguments
